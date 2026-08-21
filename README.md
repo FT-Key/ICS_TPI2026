@@ -14,7 +14,10 @@ El proyecto está compuesto por dos partes principales:
 ICS/
 ├── ICS_TPI2026_frontend/    → Frontend (React + Vite)
 ├── ICS_TPI2026_backend/     → Backend (.NET 8 - C#)
-└── README.md                → Este archivo
+├── README.md                → Estado actual del proyecto (este archivo)
+├── TP1_Resuelto.md          → Modelado, auditoría técnica y plan de refactorización
+├── PLAN.md                  → Plan de implementación de SQL Server
+└── DB_Config.md             → Configuración de conexión a la base de datos
 ```
 
 ---
@@ -233,6 +236,31 @@ El backend corre en `http://localhost:5142`. Swagger disponible en `/swagger`.
 | Backend - Servicios de negocio | ❌ Vacío |
 | Backend - Base de datos / Migraciones | ❌ No configurado |
 | Backend - Auth JWT | ❌ No implementado |
+
+---
+
+## Infraestructura de Base de Datos
+
+| Componente | Estado | Documentación |
+|---|---|---|
+| SQL Server 2022 (Docker) | ✅ Configurado | `DB_Config.md` |
+| Connection string (dev) | ✅ Documentado | `DB_Config.md` |
+| Docker Compose | ✅ Documentado | `PLAN.md` (sección Docker Compose) |
+| Entity modeling | ✅ Documentado | `PLAN.md` (sección Entidades) y `TP1_Resuelto.md` |
+| Azure SQL (producción) | ✅ Planificado | `PLAN.md` (sección Producción) |
+
+**Nota:** La configuración de SQL Server está documentada pero aún no implementada. Ver `PLAN.md` para el plan de ejecución completo.
+
+---
+
+## Archivos de Documentación
+
+| Archivo | Contenido |
+|---|---|
+| `README.md` | Estado actual del proyecto, estructura, deuda técnica (este archivo) |
+| `TP1_Resuelto.md` | Diagramas C4, modelado de entidades (ER), auditoría técnica, plan de refactorización |
+| `PLAN.md` | Plan de implementación de SQL Server: entidades, DbContext, Docker, migraciones, Azure |
+| `DB_Config.md` | Datos de conexión a SQL Server (usuario, password, puerto) |
 
 ---
 
@@ -630,6 +658,106 @@ El proyecto `Api` no referencia a `Application` ni a `Data`. Solo `Data` referen
 
 ---
 
+### Seguridad y Autenticación
+
+---
+
+#### 25. Sin autenticación JWT configurada en el backend
+
+**Archivo:** `Dsw2025Tpi.Api/Program.cs`
+
+No existe ningún mecanismo de autenticación. `UseAuthorization()` en la línea 29 es código muerto porque no hay `UseAuthentication()` previo. No hay paquete JWT instalado, no hay configuración de tokens, no hay endpoint de login.
+
+**Patrón violado:** Security by Design — no hay autenticación en ninguna capa.
+
+**Impacto de no corregir:** Todos los endpoints son públicos. Cualquiera puede acceder a cualquier recurso sin credenciales. El login del frontend no puede funcionar.
+
+**Esfuerzo para corregir:** Alto (~4-6 horas). Instalar `Microsoft.AspNetCore.Authentication.JwtBearer`, configurar JWT, crear `AuthController`, implementar generación de tokens.
+
+**Impacto de la corrección:** API segura con control de acceso, login funcional, distinction entre admin y cliente.
+
+---
+
+#### 26. Sin hashing de contraseñas
+
+**Archivo:** Todo el backend (no existe `User` entity ni paquete de hashing)
+
+No existe ningún mecanismo de hashing de contraseñas. No hay entidad `User` con campo `PasswordHash`, no hay paquete BCrypt o similar instalado.
+
+**Patrón violado:** Password Storage Best Practice — contraseñas nunca deben guardarse en texto plano.
+
+**Impacto de no corregir:** Si se implementa login sin hashing, las contraseñas quedan en texto plano en la BD. Si la BD es comprometida, todas las credenciales quedan expuestas.
+
+**Esfuerzo para corregir:** Bajo (~1 hora). Instalar `BCrypt.Net-Next`, usar `BCrypt.HashPassword()` y `BCrypt.Verify()`.
+
+**Impacto de la corrección:** Contraseñas seguras en la BD, protección contra ataques de fuerza bruta.
+
+---
+
+#### 27. Token almacenado en localStorage (vulnerable a XSS)
+
+**Archivo:** `src/modules/auth/context/AuthProvider.jsx`
+
+El JWT se almacena en `localStorage`, que es accesible por cualquier script que se ejecute en la página. Si hay un ataque XSS, el atacante puede robar el token.
+
+**Patrón violado:** Secure Token Storage — `localStorage` es vulnerable a XSS.
+
+**Impacto de no corregir:** Robo de sesión via XSS, suplantación de identidad, acceso no autorizado.
+
+**Esfuerzo para corregir:** Medio (~2-3 horas). Mover token a HttpOnly cookie o implementar BFF pattern.
+
+**Impacto de la corrección:** Token protegido contra XSS, mayor seguridad de sesión.
+
+---
+
+#### 28. Sin control de acceso por roles
+
+**Archivos:** Todo el proyecto (frontend y backend)
+
+No existe implementación de roles. El README establece que "los administradores solo pueden gestionar productos" y "los clientes pueden crear y consultar ordenes", pero no hay distinción real. `ProtectedRoute.jsx` solo verifica si hay token, no el rol.
+
+**Patrón violado:** Least Privilege — todos los usuarios tienen los mismos privilegios.
+
+**Impacto de no corregir:** Un cliente podría modificar productos, ver ordenes ajenas, o acceder a funcionalidades de admin.
+
+**Esfuerzo para corregir:** Medio (~2-3 horas). Definir roles como enteros (0=Admin, 1=Client), agregar `[Authorize(Roles = "0")]` en endpoints de admin.
+
+**Impacto de la corrección:** Separación de privilegios, clientes no pueden acceder a funcionalidades de admin.
+
+---
+
+#### 29. Sin CORS configurado
+
+**Archivo:** `Dsw2025Tpi.Api/Program.cs`
+
+No hay configuración CORS. El proxy de Vite safa el problema en desarrollo, pero en producción el frontend no podría comunicarse con el backend.
+
+**Patrón violado:** Cross-Origin Resource Sharing — configuración de seguridad y conectividad.
+
+**Impacto de no corregir:** En producción, todas las peticiones del frontend retornan error CORS. La aplicación no funciona.
+
+**Esfuerzo para corregir:** Bajo (~30 min). Agregar `AddCors()` y `UseCors()` con la política del frontend.
+
+**Impacto de la corrección:** Comunicación frontend-backend funciona en todos los entornos.
+
+---
+
+#### 30. Sin validación de modelos en backend
+
+**Archivos:** Todo el backend
+
+No hay Data Annotations en entidades ni FluentValidation en la capa de aplicación. Datos inválidos pueden llegar hasta la BD (precios negativos, stock negativo, strings vacíos).
+
+**Patrón violado:** Input Validation — principio de "fail fast".
+
+**Impacto de no corregir:** Datos corruptos en la BD, errores de runtime, peticiones maliciosas que bypassan la validación del frontend.
+
+**Esfuerzo para corregir:** Bajo (~1-2 horas). Agregar `[Required]`, `[Range]`, `[MaxLength]` a las entidades.
+
+**Impacto de la corrección:** Defensa en profundidad, datos íntegros en la BD.
+
+---
+
 ### Resumen de Deuda Técnica
 
 | # | Ubicación | Problema | Esfuerzo | Impacto de corregir |
@@ -658,3 +786,9 @@ El proyecto `Api` no referencia a `Application` ni a `Data`. Solo `Data` referen
 | 22 | BE: `Api/Program.cs` | Health checks superficiales | Bajo | Monitoreo real |
 | 23 | BE: `Api/Program.cs` | Sin registro de dependencias (DI) | Bajo | Inversión de dependencias, testing |
 | 24 | BE: `.csproj` | Referencias de proyecto incompletas | Bajo | Arquitectura funcional |
+| 25 | BE: `Api/Program.cs` | Sin autenticación JWT configurada | Alto | Seguridad — crítica |
+| 26 | BE: Todo el backend | Sin hashing de contraseñas | Bajo | Seguridad — crítica |
+| 27 | FE: `auth/context/AuthProvider.jsx` | Token en `localStorage` (XSS-vulnerable) | Medio | Seguridad de sesión |
+| 28 | FE + BE: Todo el proyecto | Sin control de acceso por roles | Medio | Least Privilege |
+| 29 | BE: `Api/Program.cs` | Sin CORS configurado | Bajo | Comunicación cross-origin |
+| 30 | BE: Todo el backend | Sin validación de modelos | Bajo | Integridad de datos |
