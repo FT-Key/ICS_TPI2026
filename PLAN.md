@@ -374,37 +374,203 @@ Sincronizar el documento con la nueva configuración (Docker como default, Local
 
 ---
 
+## Guía de Setup Rápido (Cómo levantar el proyecto)
+
+### Problemas conocidos y cómo resolverlos
+
+Antes de ejecutar, hay **3 problemas de configuración** que deben resolverse:
+
+#### 1. Versión de .NET
+
+Los proyectos están configurados para **.NET 8** (`TargetFramework: net8.0`), pero si solo tenés .NET 10 instalado, no vas a poder ejecutar el backend. Tenés 2 opciones:
+
+| Opción | Acción | Esfuerzo |
+|---|---|---|
+| **A (recomendada)** | Instalar .NET 8 SDK desde https://dotnet.microsoft.com/download/dotnet/8.0 | Bajo |
+| B | Actualizar todos los `.csproj` de `net8.0` a `net10.0` y los paquetes NuGet a versiones 10.x | Bajo pero requiere recrear migraciones |
+
+Si elegís la opción B, hay que actualizar estos archivos:
+- `Dsw2025Tpi.Api/Dsw2025Tpi.Api.csproj` — `TargetFramework` + paquetes NuGet
+- `Dsw2025Tpi.Application/Dsw2025Tpi.Application.csproj` — `TargetFramework`
+- `Dsw2025Tpi.Data/Dsw2025Tpi.Data.csproj` — `TargetFramework` + paquetes NuGet
+- `Dsw2025Tpi.Domain/Dsw2025Tpi.Domain.csproj` — `TargetFramework`
+- Luego borrar migraciones existentes y recrear: `dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api`
+
+#### 2. Base de datos (Docker SQL Server)
+
+Actualmente el proyecto usa **LocalDB** (`(localdb)\MSSQLLocalDB`) que tiene limitaciones importantes. Para migrar a Docker SQL Server:
+
+1. Crear `docker-compose.yml` en `ICS_TPI2026_backend/` con SQL Server 2022 (ver Fase 0 abajo)
+2. Ejecutar `docker compose up -d`
+3. Actualizar el connection string en `Dsw2025Tpi.Api/appsettings.json`:
+   ```json
+   "ConnectionStrings": {
+     "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
+   }
+   ```
+4. Eliminar migraciones existentes y recrear:
+   ```bash
+   dotnet ef migrations remove --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+   # Repetir hasta que no queden migraciones
+   dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+   dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+   ```
+
+#### 3. Puertos desalineados (Frontend ↔ Backend)
+
+El frontend (`.env.development`) apunta a `https://localhost:7138` pero el backend arranca con el perfil `http` en `http://localhost:5142`. Hay que alinear:
+
+**Opción A (simple):** Cambiar `.env.development` en el frontend:
+```
+VITE_BACKEND_URL=http://localhost:5142/
+```
+
+**Opción B:** Instalar certificado HTTPS de dev y arrancar con el perfil HTTPS:
+```bash
+dotnet dev-certs https --trust
+dotnet run --project Dsw2025Tpi.Api --launch-profile https
+```
+
+### Pasos para levantar el proyecto
+
+#### Prerrequisitos
+
+- .NET 8 SDK (o .NET 10 con upgrade)
+- Docker Desktop
+- Node.js 18+
+
+#### Backend
+
+```bash
+cd ICS_TPI2026_backend
+docker compose up -d          # Levantar SQL Server
+# (Opcional) Aplicar migraciones si es la primera vez:
+# dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+dotnet run --project Dsw2025Tpi.Api
+```
+
+El backend arranca en `http://localhost:5142` (perfil http) o `https://localhost:7138` (perfil https). Swagger en `/swagger`.
+
+#### Frontend
+
+```bash
+cd ICS_TPI2026_frontend
+# Asegurarse de que .env.development tenga la URL correcta del backend
+npm install
+npm run dev
+```
+
+El frontend arranca en `http://localhost:5173`. Proxy de Vite redirige `/api` al backend.
+
+---
+
+## Backlog — Deuda Técnica y Mejoras (Historias de Usuario)
+
+### Épica 1: UX/UI del Frontend
+
+| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
+|---|---|---|---|---|
+| **US-01** | Como visitante, quiero ver una **página Home** con banner de bienvenida, productos destacados y un CTA para registrarme, para que la plataforma no sea solo un listado de productos. | Alta | Media | Pendiente |
+| **US-02** | Como visitante, quiero ver una **página "Productos"** dedicada con filtros, búsqueda y categorías, para encontrar lo que busco fácilmente. | Alta | Media | Pendiente |
+| **US-03** | Como visitante, quiero ver una **página "Sobre Nosotros"** con información de la empresa, equipo y contacto, para generar confianza. | Media | Baja | Pendiente |
+| **US-04** | Como visitante, quiero ver un **footer** con links útiles (contacto, redes sociales, políticas, FAQ), para navegar la plataforma. | Media | Baja | Pendiente |
+| **US-05** | Como usuario no logueado, **no quiero ver el botón del carrito** en el header, para que la UI sea coherente (solo usuarios logueados pueden comprar). | Alta | Baja | Pendiente |
+| **US-06** | Como usuario, quiero un **header que cambie según mi estado** (logueado/no logueado): si no estoy logueado mostrar "Login / Register", si estoy logueado mostrar "Mi cuenta / Carrito / Logout". | Alta | Media | Pendiente |
+| **US-07** | Como usuario, quiero ver **toast notifications** (éxito/error) al realizar acciones (agregar al carrito, crear orden, login), para saber si la operación fue exitosa. | Media | Baja | Pendiente |
+| **US-08** | Como usuario, quiero ver **skeletons/loaders** mientras se cargan los productos, para que la experiencia sea fluida. | Media | Baja | Pendiente |
+| **US-09** | Como usuario, quiero un **diseño responsivo completo** (mobile-first) en todas las páginas, no solo en el dashboard admin. | Alta | Media | Pendiente |
+| **US-10** | Como visitante, quiero ver una **página 404** personalizada cuando navegue a una ruta inexistente. | Baja | Baja | Pendiente |
+
+### Épica 2: Funcionalidad Backend
+
+| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
+|---|---|---|---|---|
+| **US-11** | Como admin, quiero un **dashboard con datos reales** (total de productos, órdenes, clientes, ingresos), para tomar decisiones informadas. | Alta | Media | Pendiente |
+| **US-12** | Como cliente, quiero ver **solo mis órdenes** (`GET /api/orders/mine`), para no depender del admin. | Alta | Media | Pendiente |
+| **US-13** | Como admin, quiero poder **gestionar categorías** (CRUD), para agrupar y filtrar productos. | Media | Media | Pendiente |
+| **US-14** | Como admin, quiero poder **gestionar clientes** (CRUD), para administrar la base de usuarios. | Media | Media | Pendiente |
+| **US-15** | Como admin, quiero **editar órdenes** (cambiar dirección, notas), para corregir errores. | Media | Baja | Pendiente |
+| **US-16** | Como cliente, quiero **recuperar contraseña** por email, para no quedar bloqueado. | Alta | Media | Pendiente |
+
+### Épica 3: Seguridad
+
+| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
+|---|---|---|---|---|
+| **US-17** | Como admin, quiero que el **JWT secret no esté en el código fuente**, para que la plataforma sea segura en producción. | Crítica | Baja | Pendiente |
+| **US-18** | Como admin, quiero que las **credenciales admin estén en variables de entorno**, para que no se expongan en el repo. | Crítica | Baja | Pendiente |
+| **US-19** | Como admin, quiero **rate limiting en login/register**, para prevenir ataques de fuerza bruta. | Alta | Media | Pendiente |
+| **US-20** | Como admin, quiero una **password policy más fuerte** (mayúsculas, números, caracteres especiales), para mejorar la seguridad. | Alta | Baja | Pendiente |
+| **US-21** | Como admin, quiero que el token se almacene en **HttpOnly cookie** en vez de localStorage, para prevenir ataques XSS. | Alta | Alta | Pendiente |
+| **US-22** | Como admin, quiero **refresh tokens**, para que los usuarios no tengan que re-loguearse cada 60 min. | Media | Alta | Pendiente |
+
+### Épica 4: Calidad de Código
+
+| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
+|---|---|---|---|---|
+| **US-23** | Como developer, quiero un **global exception handling middleware**, para que los errores 500 no se filen al frontend. | Alta | Media | Pendiente |
+| **US-24** | Como developer, quiero un **Unit of Work** que atomicice las operaciones multi-tabla (ej: crear orden + descontar stock), para evitar inconsistencias. | Alta | Media | Pendiente |
+| **US-25** | Como developer, quiero corregir la **dependencia circular** Application→Data, para que la arquitectura Clean Architecture sea correcta. | Media | Media | Pendiente |
+| **US-26** | Como developer, quiero **corregir los bugs** en el DbContext (BillingAddress.HasPrecision, Order.Date.HasMaxLength) y los GUIDs duplicados en seed data. | Alta | Baja | Pendiente |
+| **US-27** | Como developer, quiero **corregir el typo** `TotatAmount` → `TotalAmount` en DTOs y frontend. | Media | Baja | Pendiente |
+| **US-28** | Como developer, quiero **eliminar BaseController.cs** (código muerto) y los imports no usados. | Baja | Baja | Pendiente |
+| **US-29** | Como developer, quiero **TypeScript en el frontend**, para tipado estático y mejor mantenibilidad. | Media | Muy Alta | Pendiente |
+
+### Épica 5: Infraestructura
+
+| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
+|---|---|---|---|---|
+| **US-30** | Como admin, quiero **migrar de LocalDB a Docker SQL Server**, para tener un entorno estable y portable. | Alta | Media | Pendiente |
+| **US-31** | Como admin, quiero un **health check que verifique SQL Server**, para detectar problemas de conectividad. | Media | Baja | Pendiente |
+| **US-32** | Como admin, quiero **Serilog** (logging estructurado), para poder diagnosticar problemas en producción. | Media | Media | Pendiente |
+| **US-33** | Como admin, quiero **API versioning** (`/api/v1/products`), para poder evolucionar la API sin romper clientes existentes. | Baja | Media | Pendiente |
+| **US-34** | Como admin, quiero un **Dockerfile** para el backend y el frontend, para desplegar en cualquier entorno. | Media | Media | Pendiente |
+
+---
+
 ## Orden de Ejecución Recomendado
 
-### Fase 0 — Base de datos (30 min)
-1. Crear `docker-compose.yml` con SQL Server 2022
-2. Actualizar connection string en `appsettings.json`
-3. Eliminar y recrear migraciones EF Core
-4. Verificar que el backend arranca y la API responde
+### Fase 0 — Setup y Base de datos (30 min)
+1. Resolver versión de .NET (instalar .NET 8 o upgrade a .NET 10)
+2. Crear `docker-compose.yml` con SQL Server 2022
+3. Actualizar connection string en `appsettings.json`
+4. Eliminar y recrear migraciones EF Core
+5. Alinear puertos (`.env.development` ↔ backend)
+6. Verificar que el backend arranca y la API responde
 
 ### Fase 1 — Seguridad inmediata (1-2 horas)
-2. Mover JWT secret y admin credentials a User Secrets / Variables de Entorno
-3. Configurar `ExpireInMinutes` en appsettings.json
-4. Fortalecer password policy
-5. Agregar unique index en `Product.Sku`
+7. Mover JWT secret y admin credentials a User Secrets / Variables de Entorno
+8. Configurar `ExpireInMinutes` en appsettings.json
+9. Fortalecer password policy
+10. Agregar unique index en `Product.Sku`
 
 ### Fase 2 — Calidad de código (2-3 horas)
-6. Corregir bugs en DbContext (`BillingAddress`, `Order.Date`)
-7. Corregir GUIDs duplicados en seed data
-8. Corregir typo `TotatAmount`
-9. Eliminar `BaseController.cs`
-10. Agregar global exception handling middleware
+11. Corregir bugs en DbContext (`BillingAddress`, `Order.Date`)
+12. Corregir GUIDs duplicados en seed data
+13. Corregir typo `TotatAmount`
+14. Eliminar `BaseController.cs`
+15. Agregar global exception handling middleware
 
 ### Fase 3 — Arquitectura (3-4 horas)
-11. Implementar Unit of Work
-12. Corregir dependencia circular Application→Data
-13. Agregar rate limiting
+16. Implementar Unit of Work
+17. Corregir dependencia circular Application→Data
+18. Agregar rate limiting
 
-### Fase 4 — Funcionalidad (4-6 horas)
-14. Crear entidad Category
-15. Dashboard con datos reales
-16. Endpoint `orders/mine` para clientes
-17. Health check con SQL Server
+### Fase 4 — Funcionalidad Backend (4-6 horas)
+19. Crear entidad Category
+20. Dashboard con datos reales
+21. Endpoint `orders/mine` para clientes
+22. Health check con SQL Server
+
+### Fase 5 — Frontend UX/UI (6-8 horas)
+23. Crear página Home con productos destacados
+24. Crear página "Productos" dedicada
+25. Crear página "Sobre Nosotros"
+26. Crear componente Footer
+27. Ocultar botón carrito si no hay usuario logueado
+28. Header dinámico según estado de autenticación
+29. Toast notifications y skeleton loaders
+30. Diseño responsivo completo (mobile-first)
+31. Página 404 personalizada
 
 ---
 

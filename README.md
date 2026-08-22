@@ -280,15 +280,33 @@ El frontend se conecta al backend via proxy de Vite (`/api` → `VITE_BACKEND_UR
 
 ## Cómo Ejecutar
 
-### Requisitos previos
+### Prerrequisitos
 
-- .NET 8 SDK
+- .NET 8 SDK (o .NET 10 con upgrade de los .csproj)
+- Docker Desktop
 - Node.js 18+
-- SQL Server (una de estas opciones):
-  - **LocalDB** — Viene con Visual Studio o SQL Server Express (solo Windows)
-  - **Docker SQL Server** (recomendado) — Requiere Docker Desktop instalado
 
-### Frontend
+### 1. Base de datos (Docker SQL Server)
+
+```bash
+cd ICS_TPI2026_backend
+docker compose up -d
+```
+
+Esto levanta SQL Server 2022 en `localhost:1433`. Verificar que el contenedor esté corriendo: `docker ps`.
+
+### 2. Backend
+
+```bash
+cd ICS_TPI2026_backend
+dotnet run --project Dsw2025Tpi.Api
+```
+
+El backend arranca en `http://localhost:5142` (perfil http). Swagger disponible en `/swagger`.
+
+> **Si tenés .NET 10 en vez de .NET 8:** Hay que cambiar los `.csproj` de `net8.0` a `net10.0` y actualizar los paquetes NuGet a versiones 10.x, luego recrear las migraciones. Ver PLAN.md (Guía de Setup Rápido).
+
+### 3. Frontend
 
 ```bash
 cd ICS_TPI2026_frontend
@@ -296,35 +314,21 @@ npm install
 npm run dev
 ```
 
-El frontend corre en `http://localhost:5173`. Proxy de Vite redirige `/api` al backend.
+El frontend arranca en `http://localhost:5173`. Proxy de Vite redirige `/api` al backend.
 
-### Backend
+### ⚠️ Alinear puertos Frontend ↔ Backend
 
-```bash
-cd ICS_TPI2026_backend
-dotnet run --project Dsw2025Tpi.Api
-```
-
-El backend corre en `https://localhost:7138`. Swagger disponible en `/swagger`.
-
-### Base de datos
-
-El backend usa **SQL Server**. Actualmente está configurado con **LocalDB** para desarrollo:
+El archivo `.env.development` del frontend debe apuntar al puerto donde escucha el backend:
 
 ```
-Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=Dsw2025Tpi;Integrated Security=True;
+VITE_BACKEND_URL=http://localhost:5142/
 ```
 
-> **Nota:** LocalDB tiene limitaciones (solo Windows, un usuario a la vez, inestable). Se recomienda migrar a **Docker SQL Server** para un entorno más estable y portable. Ver `DB_Config.md` y `PLAN.md` (Fase 0) para el plan de migración.
+Si el backend arranca con perfil HTTPS (`--launch-profile https`), usar `https://localhost:7138/` en su lugar. Verificar que los puertos coincidan.
 
-### Migrar a Docker SQL Server (recomendado)
+### Base de datos — Configuración
 
-```bash
-cd ICS_TPI2026_backend
-docker compose up -d
-```
-
-Esto levanta SQL Server 2022 en el puerto 1433. Luego actualizar el connection string en `appsettings.json`:
+Connection string en `appsettings.json`:
 
 ```json
 "ConnectionStrings": {
@@ -332,13 +336,13 @@ Esto levanta SQL Server 2022 en el puerto 1433. Luego actualizar el connection s
 }
 ```
 
-Y recrear las migraciones:
+Si es la primera vez, aplicar las migraciones:
 
 ```bash
-dotnet ef migrations remove --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
 dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
 ```
+
+Ver `DB_Config.md` para más detalles sobre la configuración de la base de datos.
 
 ---
 
@@ -387,6 +391,8 @@ dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi
 
 ## Deuda Técnica
 
+> **Backlog completo con historias de usuario:** Ver `PLAN.md` → "Backlog — Deuda Técnica y Mejoras".
+
 ### CRÍTICA — Seguridad
 
 | # | Ubicación | Problema | Esfuerzo |
@@ -424,7 +430,7 @@ dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi
 | 21 | BE: `Application/Services/ProducstManagementServices.cs` | Typo en nombre de archivo ("Producst") | Bajo |
 | 22 | BE: `Application/Dtos/OrderModel.cs` | Typo: `TotatAmount` debería ser `TotalAmount` | Bajo |
 | 23 | FE: `orders/pages/ListOrdersPage.jsx` | Trabaja con typo del backend: `order.totatAmount` | Bajo |
-| 24 | FE: `shared/api/axiosInstance.js` | `withCredentials: innecesario (backend usa Bearer token, no cookies) | Bajo |
+| 24 | FE: `shared/api/axiosInstance.js` | `withCredentials` innecesario (backend usa Bearer token, no cookies) | Bajo |
 | 25 | FE: Múltiples archivos | Imágenes hardcoded externas (CDN de terceros) | Bajo |
 | 26 | FE: `products/pages/ListProductsUserPage.jsx` | Base64 inline de 400+ chars como imagen por defecto | Bajo |
 | 27 | FE: `package.json` | `SweetAlert2` instalado pero nunca importado | Bajo |
@@ -449,6 +455,22 @@ dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi
 | 35 | BE: Configuración | Sin Serilog (logging estructurado) | Medio |
 | 36 | BE: Configuración | Sin API versioning | Medio |
 | 37 | BE: Configuración | Health check no verifica SQL Server | Bajo |
+
+### NUEVA — UX/UI Frontend
+
+| # | Ubicación | Problema | Esfuerzo |
+|---|---|---|---|
+| 39 | FE | No existe página Home (solo listado de productos en `/`) | Media |
+| 40 | FE | No existe página "Productos" dedicada con filtros avanzados | Media |
+| 41 | FE | No existe página "Sobre Nosotros" | Baja |
+| 42 | FE | No existe componente Footer | Baja |
+| 43 | FE: Header | Botón carrito visible incluso sin usuario logueado | Baja |
+| 44 | FE: Header | Header no cambia según estado de autenticación | Media |
+| 45 | FE | Sin toast notifications (éxito/error) | Baja |
+| 46 | FE | Sin skeleton loaders durante carga de datos | Baja |
+| 47 | FE | Diseño responsivo incompleto (solo dashboard admin) | Media |
+| 48 | FE | No existe página 404 personalizada | Baja |
+| 49 | FE: `index.html` | Título del tab "unidad-5" (leftover) | Bajo |
 
 ---
 
