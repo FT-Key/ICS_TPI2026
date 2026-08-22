@@ -284,7 +284,9 @@ El frontend se conecta al backend via proxy de Vite (`/api` → `VITE_BACKEND_UR
 
 - .NET 8 SDK
 - Node.js 18+
-- SQL Server (Docker o local)
+- SQL Server (una de estas opciones):
+  - **LocalDB** — Viene con Visual Studio o SQL Server Express (solo Windows)
+  - **Docker SQL Server** (recomendado) — Requiere Docker Desktop instalado
 
 ### Frontend
 
@@ -307,7 +309,36 @@ El backend corre en `https://localhost:7138`. Swagger disponible en `/swagger`.
 
 ### Base de datos
 
-El backend usa SQL Server (LocalDB en desarrollo). Las migraciones se aplican automáticamente al iniciar. El seed data (productos, clientes, órdenes) se carga desde archivos JSON en `Data/Sources/`.
+El backend usa **SQL Server**. Actualmente está configurado con **LocalDB** para desarrollo:
+
+```
+Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=Dsw2025Tpi;Integrated Security=True;
+```
+
+> **Nota:** LocalDB tiene limitaciones (solo Windows, un usuario a la vez, inestable). Se recomienda migrar a **Docker SQL Server** para un entorno más estable y portable. Ver `DB_Config.md` y `PLAN.md` (Fase 0) para el plan de migración.
+
+### Migrar a Docker SQL Server (recomendado)
+
+```bash
+cd ICS_TPI2026_backend
+docker compose up -d
+```
+
+Esto levanta SQL Server 2022 en el puerto 1433. Luego actualizar el connection string en `appsettings.json`:
+
+```json
+"ConnectionStrings": {
+  "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
+}
+```
+
+Y recrear las migraciones:
+
+```bash
+dotnet ef migrations remove --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+```
 
 ---
 
@@ -400,6 +431,12 @@ El backend usa SQL Server (LocalDB en desarrollo). Las migraciones se aplican au
 | 28 | BE: `Application/Validation/` | Inconsistencia en tipos de excepciones entre validadores | Bajo |
 | 29 | BE: `Application/Services/OrdersManagementServices.cs` | Imports no usados (`Azure.Core`, `Microsoft.IdentityModel.Tokens`) | Bajo |
 | 30 | BE: `test/` y `testC/` | Directorios duplicados con contenido idéntico | Bajo |
+
+### BAJA — Infraestructura
+
+| # | Ubicación | Problema | Esfuerzo |
+|---|---|---|---|
+| 38 | BE: `appsettings.json` | LocalDB limitado (solo Windows, un usuario, inestable, no apto para Docker) | Medio |
 
 ### BAJA — Mejoras
 

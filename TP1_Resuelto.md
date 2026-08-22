@@ -745,19 +745,56 @@ El OrderItemValidator existe pero no es invocado desde OrderValidator.Validate()
 
 ---
 
+### Hallazgo AT-26 — Base de datos LocalDB no apta para produccion (ALTO)
+
+**Ubicacion:** Dsw2025Tpi.Api/appsettings.json linea 2, DB_Config.md
+
+**Tipo:** Infraestructura (High — Not Production Ready)
+
+**Descripcion:**
+El backend usa `(localdb)\MSSQLLocalDB` con Integrated Security (Windows Authentication). LocalDB tiene limitaciones significativas que lo hacen inadecuado para cualquier entorno que no sea desarrollo local en Windows:
+
+- **Solo Windows** — no funciona en Linux ni Mac
+- **Un usuario a la vez** — named pipes, no acepta conexiones TCP simultaneas
+- **Inestable** — el motor se inicia/detiene automaticamente, fallos frecuentes
+- **Sin autenticacion por usuario** — usa Windows Auth, imposible configurar User/Password
+- **No apto para Docker** — no se puede empaquetar en contenedor
+- **10 GB max** — limite de base de datos
+- **Rendimiento limitado** — no soporta carga real
+
+**Evidencia:**
+
+```json
+"ConnectionStrings": {
+    "Dsw2025Tpi": "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Dsw2025Tpi;Integrated Security=True;"
+}
+```
+
+**Consecuencias:**
+- Imposible desplegar en entorno Docker o contenedor
+- Colaboradores con Mac/Linux no pueden ejecutar el backend
+- Inestabilidad en el desarrollo diario (fallos de conexion)
+- No refleja el entorno de produccion (SQL Server real)
+
+**Recomendacion:** Migrar a Docker SQL Server 2022 (`mcr.microsoft.com/mssql/server:2022-latest`) con autenticacion SQL (User/Password). Ver `PLAN.md` Fase 0 para el plan detallado de migracion.
+
+**Impacto:** Alto | **Esfuerzo:** Medio (~30 min)
+
+---
+
 ## 5. Matriz de Priorizacion — Esfuerzo vs Impacto
 
 | | Impacto Bajo | Impacto Alto | Impacto Muy Alto | Impacto Critico |
 |---|---|---|---|---|
 | **Esfuerzo Bajo** | AT-08, AT-11, AT-20, AT-21, AT-22, AT-23, AT-24 | AT-15, AT-19, AT-25 | AT-10, AT-12, AT-13, AT-14 | AT-01, AT-02, AT-05 |
-| **Esfuerzo Medio** | — | AT-17, AT-18 | AT-06, AT-07, AT-09, AT-16 | AT-03, AT-04 |
+| **Esfuerzo Medio** | — | AT-17, AT-18, **AT-26** | AT-06, AT-07, AT-09, AT-16 | AT-03, AT-04 |
 
 ### Leyenda de prioridad
 
 - **P1 — Critico (hacer ya):** AT-01 + AT-02 — Secret y credenciales expuestas. Si el repo es publico, el sistema esta comprometido.
 - **P2 — Hacer pronto:** AT-03 + AT-05 — Rate limiting y password policy. Seguridad basica.
 - **P3 — Hacer pronto:** AT-06 + AT-07 + AT-09 — Arquitectura: circular dep, UoW, exception handling.
-- **P4 — Planificar:** AT-12 + AT-14 + AT-15 + AT-16 + AT-25 — Bugs y calidad de codigo.
+- **P4 — Planificar:** AT-12 + AT-14 + AT-15 + AT-16 + AT-25 + **AT-26** — Bugs, calidad de codigo, e infraestructura de BD.
 - **P5 — Mejoras:** AT-04 + AT-17 + AT-18 + AT-19 — Frontend patterns.
 - **P6 — Bajo:** AT-08, AT-10, AT-11, AT-20, AT-21, AT-22, AT-23, AT-24 — Limpieza y cosmetica.
 
@@ -792,6 +829,7 @@ El OrderItemValidator existe pero no es invocado desde OrderValidator.Validate()
 | 23 | AT-22 | Eliminar SweetAlert2 (no usado) | Bajo | Bajo | P6 |
 | 24 | AT-23 | Renombrar ProducstManagementServices.cs | Bajo | Bajo | P6 |
 | 25 | AT-24 | Estandarizar tipos de excepcion en validadores | Bajo | Bajo | P6 |
+| 26 | **AT-26** | **Migrar de LocalDB a Docker SQL Server** | **Medio** | **Alto** | **P4** |
 
 ---
 
@@ -801,16 +839,18 @@ El OrderItemValidator existe pero no es invocado desde OrderValidator.Validate()
 
 El proyecto tiene una base solida implementada: Clean Architecture en 4 capas, entidades de dominio, autenticacion JWT con ASP.NET Identity, controllers, servicios, DTOs, y un frontend funcional con 6 modulos (auth, products, orders, cart, home, shared).
 
-### Deuda tecnica total identificada: 25 hallazgos
+**Infraestructura de BD:** Actualmente usa LocalDB (limitado, solo Windows). Se recomienda migrar a Docker SQL Server (ver AT-26 y PLAN.md Fase 0).
+
+### Deuda tecnica total identificada: 26 hallazgos
 
 | Severidad | Cantidad | Hallazgos |
 |-----------|----------|-----------|
 | Critica | 2 | AT-01 (JWT secret), AT-02 (admin creds) |
-| Alta | 5 | AT-03, AT-04, AT-06, AT-07, AT-09 |
-| Media | 7 | AT-05, AT-10, AT-13, AT-14, AT-16, AT-17, AT-18, AT-19, AT-25 |
-| Baja | 11 | AT-08, AT-11, AT-12, AT-20, AT-21, AT-22, AT-23, AT-24 |
+| Alta | 6 | AT-03, AT-04, AT-06, AT-07, AT-09, AT-26 |
+| Media | 8 | AT-05, AT-10, AT-13, AT-14, AT-16, AT-17, AT-18, AT-19, AT-25 |
+| Baja | 10 | AT-08, AT-11, AT-12, AT-20, AT-21, AT-22, AT-23, AT-24 |
 
-### Esfuerzo total estimado para resolver todo: ~15-20 horas
+### Esfuerzo total estimado para resolver todo: ~16-21 horas
 
 ### Prioridad inmediata (proximas 2-3 horas):
 1. Mover secret y credenciales a variables de entorno
@@ -819,3 +859,4 @@ El proyecto tiene una base solida implementada: Clean Architecture en 4 capas, e
 4. Corregir bugs en DbContext
 5. Agregar unique index en SKU
 6. Corregir typo TotatAmount
+7. **Migrar de LocalDB a Docker SQL Server** (ver PLAN.md Fase 0)

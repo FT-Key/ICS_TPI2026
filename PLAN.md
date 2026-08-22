@@ -227,6 +227,12 @@ Flujo actual:    Api → Application → Data → Domain  (Application conoce Da
 | 4 | Configurar expiry JWT configurable | Bajo | Agregar `ExpireInMinutes` a appsettings.json |
 | 5 | Fortalecer password policy | Bajo | Requerir mayúscula, número, carácter especial |
 
+### Prioridad Alta (Infraestructura — Base de Datos)
+
+| # | Item | Esfuerzo | Detalle |
+|---|---|---|---|
+| 1 | **Migrar de LocalDB a Docker SQL Server** | Medio | LocalDB tiene limitaciones: no soporta conexiones múltiples, inestable, no disponible en Linux/Mac nativo, no apto para producción. Ver sección dedicada abajo. |
+
 ### Prioridad Alta (Arquitectura y Calidad)
 
 | # | Item | Esfuerzo | Detalle |
@@ -264,31 +270,141 @@ Flujo actual:    Api → Application → Data → Domain  (Application conoce Da
 
 ---
 
+## Fase 0 — Migración de Base de Datos: LocalDB → Docker SQL Server
+
+### Contexto
+
+Actualmente el backend usa **LocalDB** (`(localdb)\MSSQLLocalDB`) con Windows Authentication. LocalDB tiene limitaciones importantes:
+
+- **No acepta conexiones TCP remotas** — solo funciona localmente con named pipes
+- **Inestable** — el motor se inicia/detiene automáticamente, a veces falla
+- **No disponible en Linux/Mac** — solo funciona en Windows con SQL Server Express instalado
+- **Sin soporte de autenticación por usuario** — usa Windows Auth (Integrated Security)
+- **No apto para contenedores Docker** — no se puede empaquetar en un Dockerfile
+- **Limitaciones de rendimiento** — 10 GB max, un solo usuario a la vez
+
+### Plan de migración
+
+#### 1. Crear `docker-compose.yml` en la raíz del backend
+
+```yaml
+version: "3.8"
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ics-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Dsw2025Tpi_Sa123!"   # Cambiar en producción
+      MSSQL_PID: "Developer"                     # Licencia Developer (gratis)
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Dsw2025Tpi_Sa123!" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sqlserver-data:
+```
+
+#### 2. Actualizar connection string en `appsettings.json`
+
+**Actual (LocalDB):**
+```json
+"ConnectionStrings": {
+  "Dsw2025Tpi": "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Dsw2025Tpi;Integrated Security=True;"
+}
+```
+
+**Nuevo (Docker SQL Server):**
+```json
+"ConnectionStrings": {
+  "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
+}
+```
+
+> **Nota:** `AuthenticateContext` y `Dsw2025TpiContext` usan la misma connection string (`Dsw2025Tpi`), así que ambas se afectan automáticamente.
+
+#### 3. Eliminar migraciones existentes y recrear
+
+```bash
+cd ICS_TPI2026_backend
+dotnet ef migrations remove --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+# Repetir hasta eliminar todas las migraciones
+dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
+```
+
+#### 4. Crear `appsettings.Development.json` (override seguro)
+
+```json
+{
+  "ConnectionStrings": {
+    "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
+  }
+}
+```
+
+#### 5. Actualizar `DB_Config.md`
+
+Sincronizar el documento con la nueva configuración (Docker como default, LocalDB como alternativa).
+
+### Archivos a modificar
+
+| Archivo | Cambio |
+|---|---|
+| `docker-compose.yml` (nuevo) | Servicio SQL Server 2022 |
+| `appsettings.json` | Connection string → Docker SQL Server |
+| `appsettings.Development.json` (nuevo) | Override para desarrollo |
+| `DB_Config.md` | Documentar ambas opciones (Docker default, LocalDB fallback) |
+| `README.md` | Actualizar instrucciones de ejecución |
+| Migraciones EF Core | Eliminar y recrear (cambian los providers de SQL) |
+
+### Verificación
+
+1. `docker compose up -d` → SQL Server arranca en puerto 1433
+2. `dotnet ef database update` → Migraciones aplican correctamente
+3. `dotnet run --project Dsw2025Tpi.Api` → Backend conecta a Docker SQL Server
+4. Swagger funciona, CRUD de productos/órdenes opera correctamente
+5. Seed data se carga sin errores
+
+---
+
 ## Orden de Ejecución Recomendado
 
+### Fase 0 — Base de datos (30 min)
+1. Crear `docker-compose.yml` con SQL Server 2022
+2. Actualizar connection string en `appsettings.json`
+3. Eliminar y recrear migraciones EF Core
+4. Verificar que el backend arranca y la API responde
+
 ### Fase 1 — Seguridad inmediata (1-2 horas)
-1. Mover JWT secret y admin credentials a User Secrets / Variables de Entorno
-2. Configurar `ExpireInMinutes` en appsettings.json
-3. Fortalecer password policy
-4. Agregar unique index en `Product.Sku`
+2. Mover JWT secret y admin credentials a User Secrets / Variables de Entorno
+3. Configurar `ExpireInMinutes` en appsettings.json
+4. Fortalecer password policy
+5. Agregar unique index en `Product.Sku`
 
 ### Fase 2 — Calidad de código (2-3 horas)
-5. Corregir bugs en DbContext (`BillingAddress`, `Order.Date`)
-6. Corregir GUIDs duplicados en seed data
-7. Corregir typo `TotatAmount`
-8. Eliminar `BaseController.cs`
-9. Agregar global exception handling middleware
+6. Corregir bugs en DbContext (`BillingAddress`, `Order.Date`)
+7. Corregir GUIDs duplicados en seed data
+8. Corregir typo `TotatAmount`
+9. Eliminar `BaseController.cs`
+10. Agregar global exception handling middleware
 
 ### Fase 3 — Arquitectura (3-4 horas)
-10. Implementar Unit of Work
-11. Corregir dependencia circular Application→Data
-12. Agregar rate limiting
+11. Implementar Unit of Work
+12. Corregir dependencia circular Application→Data
+13. Agregar rate limiting
 
 ### Fase 4 — Funcionalidad (4-6 horas)
-13. Crear entidad Category
-14. Dashboard con datos reales
-15. Endpoint `orders/mine` para clientes
-16. Health check con SQL Server
+14. Crear entidad Category
+15. Dashboard con datos reales
+16. Endpoint `orders/mine` para clientes
+17. Health check con SQL Server
 
 ---
 
