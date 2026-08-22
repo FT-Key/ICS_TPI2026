@@ -1,479 +1,356 @@
-# PLAN: Implementación de SQL Server en el Backend
+# PLAN — Estado Actual y Plan de Implementación
 
 ## Objetivo
 
-Configurar la base de datos SQL Server en el backend para que el repositorio genérico (`EfRepository`) pueda persistir y consultar datos. Incluye creación de entidades, configuración del DbContext, connection string, migraciones y preparación para despliegue en la nube.
+Documento vivo que refleja el estado real del proyecto, lo que falta implementar y el plan priorizado para avanzar. Se actualiza conforme se completa cada item.
 
 ---
 
-## Estado Actual del Backend
+## Estado Actual del Proyecto
 
-| Componente | Estado |
-|---|---|
-| `Dsw2025TpiContext.cs` | Vacío (sin `DbSet<T>`, sin `OnModelCreating`) |
-| `appsettings.json` | Sin connection string |
-| `Program.cs` | Sin `AddDbContext`, sin DI de repositorios |
-| `Domain/Entities/` | Solo `EntityBase` abstracto |
-| `Api.csproj` | No referencia al proyecto `Data` |
-| Migraciones EF Core | No existen |
-| SQL Server | No configurado |
+### Backend
 
-**Resultado:** El `EfRepository` tiene CRUD completo pero es inoperable porque no hay contexto de base de datos configurado.
-
----
-
-## Entorno Propuesto
-
-| Entorno | Motor | Dónde corre | Uso |
-|---|---|---|---|
-| **Desarrollo** | SQL Server 2022 | Contenedor Docker local | Desarrollo y pruebas |
-| **Producción** | Azure SQL Database | Microsoft Azure | Despliegue en la nube |
-
-**Ventaja:** Ambos usan el mismo provider (`Microsoft.EntityFrameworkCore.SqlServer`) y son compatibles. El mismo código funciona en ambos entornos.
-
----
-
-## Entidades de Dominio a Crear
-
-Todas heredan de `EntityBase` (Guid Id auto-generado).
-
-### Product
-
-| Propiedad | Tipo | Descripción |
+| Componente | Estado | Detalle |
 |---|---|---|
-| Sku | `string` | Código SKU (formato: SKU-XXXX) |
-| InternalCode | `string` | Código interno único |
-| Name | `string` | Nombre del producto |
-| Description | `string?` | Descripción (opcional) |
-| CurrentUnitPrice | `decimal` | Precio unitario actual |
-| StockQuantity | `int` | Cantidad en stock |
-| IsActive | `bool` | Si está habilitado o no |
-| CategoryId | `Guid` | FK a Category |
+| Arquitectura en capas | ✅ Implementada | Domain → Application → Data → Api |
+| Entidades de dominio | ✅ 4 de 6 | Customer, Product, Order, OrderItem |
+| DbContext (Business) | ✅ Configurado | Fluent API, 4 DbSets, seed data |
+| DbContext (Identity) | ✅ Configurado | ASP.NET Identity con tablas custom |
+| Migraciones EF Core | ✅ Existen | 2 migraciones Business + 1 Identity |
+| Repositorio genérico | ✅ Implementado | `EfRepository` con CRUD completo |
+| Controllers | ✅ 3 implementados | Auth, Products, Orders |
+| Servicios de negocio | ✅ 3 implementados | Products, Orders, JwtToken |
+| DTOs | ✅ 6 archivos | Customer, Product, Order, OrderItem, Login, Register |
+| Validadores | ✅ 4 implementados | Estáticos, manuales if/throw |
+| Excepciones personalizadas | ✅ 3 implementadas | Application, Duplicated, NotFound |
+| Autenticación JWT | ✅ Configurada | ASP.NET Identity + JwtBearer |
+| CORS | ✅ Configurado | localhost:5173/5174 |
+| Swagger | ✅ Configurado | Swashbuckle |
+| Seed data | ✅ Configurado | Products, Customers, Orders desde JSON |
+| Password hashing | ✅ Implementado | ASP.NET Identity (PBKDF2) |
 
-**Relaciones:**
-- Muchos a 1 con `Category`
-- 1 a Muchos con `OrderItem`
+### Frontend
 
-**Restricciones:**
-- `Sku` único (index)
-- `InternalCode` único (index)
-- `CurrentUnitPrice` >= 0
-- `StockQuantity` >= 0
-
----
-
-### Category
-
-| Propiedad | Tipo | Descripción |
+| Componente | Estado | Detalle |
 |---|---|---|
-| Name | `string` | Nombre de la categoría |
-| Description | `string?` | Descripción (opcional) |
-
-**Relaciones:**
-- 1 a Muchos con `Product`
+| React 19 + Vite + Tailwind | ✅ Configurado | Build tool y estilos |
+| Módulo Auth | ✅ Funcional | Login, Register, ProtectedRoute, context |
+| Módulo Products (Admin) | ✅ Funcional | List con paginación/filtros, Create |
+| Módulo Products (User) | ✅ Funcional | Catálogo público de productos habilitados |
+| Módulo Orders (Admin) | ✅ Funcional | List con búsqueda y filtro por estado |
+| Módulo Orders (User) | ✅ Funcional | Crear orden desde carrito |
+| Módulo Cart | ✅ Funcional | Carrito con localStorage, checkout |
+| Módulo Home | ✅ Funcional | Dashboard con contadores |
+| Componentes shared | ✅ 9 componentes | Button, Card, Input, Modal, Pagination, SearchBar, etc. |
+| Hooks custom | ✅ 5 hooks | useAuth, useCart, usePagination, useToggleMap, useDeleteQuantity |
+| Axios + interceptores | ✅ Configurado | Token injection, 401 handling |
+| Layout Dashboard | ✅ Implementado | Sidebar + header + Outlet |
 
 ---
 
-### User
+## Entidades Implementadas vs Planificadas
 
-| Propiedad | Tipo | Descripción |
+### Implementadas
+
+| Entidad | Propiedades | Estado |
 |---|---|---|
-| Username | `string` | Nombre de usuario (login) |
-| PasswordHash | `string` | Hash de la contraseña (nunca texto plano) |
-| FirstName | `string` | Nombre |
-| LastName | `string` | Apellido |
-| Role | `string` | Rol: "Admin" o "Client" |
+| **Customer** | Id (Guid), Name, Email, PhoneNumber? | ✅ Creada con validaciones |
+| **Product** | Id, Sku, InternalCode, Name, Description, CurrentUnitPrice, StockQuantity, IsActive | ✅ Creada con validaciones |
+| **Order** | Id, Date, ShippingAddress?, BillingAddress?, Notes?, TotalAmount (computed), Status (enum), CustomerId FK | ✅ Creada con validaciones |
+| **OrderItem** | Id, Quantity, UnitPrice, Subtotal (computed), OrderId FK, ProductId FK | ✅ Creada con validaciones |
+| **OrderStatus** | Enum: PENDING=1, PROCESSING=2, SHIPPED=3, DELIVERED=4, CANCELLED=5 | ✅ Creado |
 
-**Relaciones:**
-- 1 a Muchos con `Order`
-- 1 a Muchos con `PaymentMethod`
+### Pendientes de implementar
 
-**Restricciones:**
-- `Username` único (index)
-- `PasswordHash` no nulo
-
----
-
-### Order
-
-| Propiedad | Tipo | Descripción |
+| Entidad | Propiedades planificadas | Prioridad |
 |---|---|---|
-| OrderNumber | `string` | Número único de orden |
-| OrderDate | `DateTime` | Fecha de creación |
-| Status | `string` | Estado: Pending, Confirmed, Shipped, Delivered, Cancelled |
-| TotalAmount | `decimal` | Monto total |
-| UserId | `Guid` | FK a User |
+| **Category** | Id, Name, Description | Media — Necesaria para agrupar productos |
+| **PaymentMethod** | Id, PaymentType, LastFourDigits, IsDefault, UserId FK | Baja — Funcionalidad extendida |
 
-**Relaciones:**
-- Muchos a 1 con `User`
-- 1 a Many con `OrderItem`
-- 1 a 1 con `ShippingAddress` (embebido o entidad separada)
-- 1 a 1 con `BillingInfo` (embebido o entidad separada)
+### Diferencias notables con el plan original
 
-**Restricciones:**
-- `OrderNumber` único (index)
-- `TotalAmount` >= 0
-
----
-
-### OrderItem
-
-| Propiedad | Tipo | Descripción |
+| Aspecto | Plan original | Implementación actual |
 |---|---|---|
-| Quantity | `int` | Cantidad |
-| UnitPrice | `decimal` | Precio unitario al momento de la compra |
-| ProductId | `Guid` | FK a Product |
-| OrderId | `Guid` | FK a Order |
-
-**Relaciones:**
-- Muchos a 1 con `Product`
-- Muchos a 1 con `Order`
-
-**Restricciones:**
-- `Quantity` >= 1
-- `UnitPrice` >= 0
+| Entidad de usuario | `User` (custom) | `IdentityUser` (ASP.NET Identity) + `Customer` (espejo) |
+| Roles | Enteros (0=Admin, 1=Client) | Strings ("Admin", "User") via Identity |
+| Categorías | Entidad `Category` con FK en Product | No implementada |
+| PaymentMethod | Entidad separada | No implementada |
+| ShippingAddress | Value Object embebido | Campo `string?` simple en Order |
+| BillingInfo | Value Object embebido | Campo `string?` simple en Order |
+| OrderNumber | Campo único | No existe (se usa `Id` como identificador) |
 
 ---
 
-### ShippingAddress (embebido en Order o entidad separada)
-
-| Propiedad | Tipo | Descripción |
-|---|---|---|
-| Street | `string` | Dirección |
-| City | `string` | Ciudad |
-| State | `string` | Provincia/Estado |
-| ZipCode | `string` | Código postal |
-| Country | `string` | País |
-
-**Opción recomendada para TPI:** Embeber como `Owned Entity Type` dentro de `Order` con `OwnsOne(o => o.ShippingAddress)`. Simplifica la DB (una tabla menos) y es suficiente para el alcance del proyecto.
-
----
-
-### BillingInfo (embebido en Order o entidad separada)
-
-| Propiedad | Tipo | Descripción |
-|---|---|---|
-| TaxId | `string` | CUIT/CUIL/NIF |
-| BillingName | `string` | Nombre/Razón social |
-| BillingAddress | `string` | Dirección de facturación |
-
-**Opción recomendada:** Igual que `ShippingAddress`, embeber como `Owned Entity Type`.
-
----
-
-### PaymentMethod
-
-| Propiedad | Tipo | Descripción |
-|---|---|---|
-| PaymentType | `string` | Tipo: CreditCard, Debit, Cash, Pix |
-| LastFourDigits | `string?` | Últimos 4 dígitos (si aplica) |
-| IsDefault | `bool` | Si es el método por defecto |
-| UserId | `Guid` | FK a User |
-
-**Relaciones:**
-- Muchos a 1 con `User`
-
----
-
-## Diagrama de Relaciones (ER)
+## Diagrama de Relaciones (ER) — Implementado
 
 ```
-User 1───────* Order
-                 │
-                 │ 1
-                 │
-OrderItem *─────*
+Customer 1───────* Order
+                     │
+                     │ 1
+                     │
+OrderItem *─────────*
    │
    │ *
-Product *─────── 1 Category
+Product (sin FK a Category)
 
-User 1───────* PaymentMethod
-
-Order ──────── OwnsOne ──── ShippingAddress
-Order ──────── OwnsOne ──── BillingInfo
+IdentityUser ────── 1:1 ──── Customer (via Guid)
 ```
+
+**Notas:**
+- `Customer` se crea como espejo de `IdentityUser` al registrar
+- `Order.TotalAmount` es computed (`=> OrderItems.Sum(...)`)
+- `OrderItem.Subtotal` es computed (`=> Quantity * UnitPrice`)
+- `Order.Date` se setea en `DateTime.Now` en el constructor
 
 ---
 
-## Archivos a Modificar y Crear
+## Seguridad — Estado Actual
 
-### Archivos a CREAR
+### Implementado
 
-| Archivo | Descripción |
-|---|---|
-| `Domain/Entities/Product.cs` | Entidad Product |
-| `Domain/Entities/Category.cs` | Entidad Category |
-| `Domain/Entities/User.cs` | Entidad User |
-| `Domain/Entities/Order.cs` | Entidad Order + ShippingAddress + BillingInfo |
-| `Domain/Entities/OrderItem.cs` | Entidad OrderItem |
-| `Domain/Entities/PaymentMethod.cs` | Entidad PaymentMethod |
-| `docker-compose.yml` | Contenedor SQL Server 2022 |
-| `Data/Migrations/` | Generada por EF CLI |
-
-### Archivos a MODIFICAR
-
-| Archivo | Cambio |
-|---|---|
-| `Data/Dsw2025TpiContext.cs` | Agregar `DbSet<T>` para cada entidad, `OnModelCreating` con Fluent API, constructor con `DbContextOptions` |
-| `Api/appsettings.json` | Agregar `ConnectionStrings.DefaultConnection` |
-| `Api/appsettings.Development.json` | Agregar connection string para dev |
-| `Api/Program.cs` | Agregar `AddDbContext`, registrar DI de repositorios |
-| `Api/Dsw2025Tpi.Api.csproj` | Agregar `<ProjectReference>` a `Data` |
-
----
-
-## Configuración de Connection Strings
-
-### Desarrollo (Docker local)
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=Dsw2025Tpi;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;"
-  }
-}
-```
-
-### Producción (Azure SQL)
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=tu-servidor.database.windows.net;Database=Dsw2025Tpi;User Id=tu-usuario;Password=tu-password;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
-  }
-}
-```
-
-**Nota:** En Azure, el password se configura via Variables de Entorno o Azure Key Vault, nunca en el archivo JSON.
-
----
-
-## Docker Compose (Desarrollo Local)
-
-```yaml
-version: '3.8'
-services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ics-sqlserver
-    environment:
-      SA_PASSWORD: "YourStrong!Password123"
-      ACCEPT_EULA: "Y"
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver-data:/var/opt/mssql
-
-volumes:
-  sqlserver-data:
-```
-
-**Comandos:**
-```bash
-docker-compose up -d          # Levantar SQL Server
-docker-compose down            # Detener
-docker-compose down -v         # Detener y eliminar datos (reset completo)
-```
-
----
-
-## Configuración del DbContext
-
-```csharp
-public class Dsw2025TpiContext : DbContext
-{
-    public Dsw2025TpiContext(DbContextOptions<Dsw2025TpiContext> options)
-        : base(options) { }
-
-    public DbSet<Product> Products => Set<Product>();
-    public DbSet<Category> Categories => Set<Category>();
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Order> Orders => Set<Order>();
-    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-    public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        // Product
-        modelBuilder.Entity<Product>(entity =>
-        {
-            entity.HasIndex(p => p.Sku).IsUnique();
-            entity.HasIndex(p => p.InternalCode).IsUnique();
-            entity.Property(p => p.CurrentUnitPrice).HasColumnType("decimal(18,2)");
-            entity.HasOne(p => p.Category)
-                  .WithMany(c => c.Products)
-                  .HasForeignKey(p => p.CategoryId);
-        });
-
-        // User
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.HasIndex(u => u.Username).IsUnique();
-        });
-
-        // Order
-        modelBuilder.Entity<Order>(entity =>
-        {
-            entity.HasIndex(o => o.OrderNumber).IsUnique();
-            entity.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
-            entity.HasOne(o => o.User)
-                  .WithMany(u => u.Orders)
-                  .HasForeignKey(o => o.UserId);
-
-            // Value objects embebidos
-            entity.OwnsOne(o => o.ShippingAddress);
-            entity.OwnsOne(o => o.BillingInfo);
-        });
-
-        // OrderItem
-        modelBuilder.Entity<OrderItem>(entity =>
-        {
-            entity.HasOne(oi => oi.Order)
-                  .WithMany(o => o.Items)
-                  .HasForeignKey(oi => oi.OrderId);
-            entity.HasOne(oi => oi.Product)
-                  .WithMany(p => p.OrderItems)
-                  .HasForeignKey(oi => oi.ProductId);
-            entity.Property(oi => oi.UnitPrice).HasColumnType("decimal(18,2)");
-        });
-
-        // PaymentMethod
-        modelBuilder.Entity<PaymentMethod>(entity =>
-        {
-            entity.HasOne(pm => pm.User)
-                  .WithMany(u => u.PaymentMethods)
-                  .HasForeignKey(pm => pm.UserId);
-        });
-    }
-}
-```
-
----
-
-## Configuración de DI en Program.cs
-
-```csharp
-// Agregar después de builder.Services.AddHealthChecks();
-
-// EF Core + SQL Server
-builder.Services.AddDbContext<Dsw2025TpiContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Repositorio genérico
-builder.Services.AddScoped<IRepository, EfRepository>();
-```
-
----
-
-## Migraciones EF Core
-
-```bash
-# Crear migración inicial
-dotnet ef migrations add InitialCreate \
-    --project Dsw2025Tpi.Data \
-    --startup-project Dsw2025Tpi.Api
-
-# Aplicar migración a la DB
-dotnet ef database update \
-    --project Dsw2025Tpi.Data \
-    --startup-project Dsw2025Tpi.Api
-
-# Para recrear la DB desde cero (dev)
-dotnet ef database drop \
-    --project Dsw2025Tpi.Data \
-    --startup-project Dsw2025Tpi.Api
-dotnet ef migrations remove \
-    --project Dsw2025Tpi.Data \
-    --startup-project Dsw2025Tpi.Api
-dotnet ef migrations add InitialCreate \
-    --project Dsw2025Tpi.Data \
-    --startup-project Dsw2025Tpi.Api
-dotnet ef database update \
-    --project Dsw2025Tpi.Data \
-    --startup-project Dsw2025Tpi.Api
-```
-
----
-
-## Referencia de Proyecto (Api.csproj)
-
-```xml
-<ItemGroup>
-    <ProjectReference Include="..\Dsw2025Tpi.Data\Dsw2025Tpi.Data.csproj" />
-</ItemGroup>
-```
-
-**Nota:** Actualmente `Api.csproj` solo tiene una referencia a `Swashbuckle`. Sin esta referencia, `Api` no puede usar `Dsw2025TpiContext` ni `EfRepository`.
-
----
-
-## Orden de Ejecución
-
-| Paso | Acción | Archivos afectados |
+| Componente | Estado | Detalle |
 |---|---|---|
-| 1 | `docker-compose up -d` | `docker-compose.yml` |
-| 2 | Crear entidades en `Domain/Entities/` | 6 archivos nuevos |
-| 3 | Modificar `Dsw2025TpiContext` | `Data/Dsw2025TpiContext.cs` |
-| 4 | Agregar connection string | `Api/appsettings.json`, `Api/appsettings.Development.json` |
-| 5 | Agregar referencia de proyecto | `Api/Dsw2025Tpi.Api.csproj` |
-| 6 | Registrar DI | `Api/Program.cs` |
-| 7 | `dotnet ef migrations add InitialCreate` | `Data/Migrations/` (auto-generado) |
-| 8 | `dotnet ef database update` | Tablas creadas en SQL Server |
-| 9 | Verificar con Azure Data Studio o SSMS | Tablas: Products, Categories, Users, Orders, OrderItems, PaymentMethods |
+| JWT Bearer Authentication | ✅ | `JwtTokenService` genera tokens con claims `sub`, `jti`, role, `id` |
+| ASP.NET Identity | ✅ | `IdentityUser` + `IdentityRole`, tablas custom en español |
+| Password Hashing | ✅ | PBKDF2 via ASP.NET Identity (no BCrypt) |
+| Roles | ✅ | "Admin" y "User" seeded al startup |
+| Admin por defecto | ✅ | `admin` / `SecurePassword123!` / role Admin |
+| CORS | ✅ | `localhost:5173`, `localhost:5174` + credentials |
+| Autorización por roles | ✅ | `[Authorize(Roles="Admin")]` en endpoints protegidos |
+| Registro de usuarios | ✅ | Crea `IdentityUser` + `Customer` espejo |
 
----
+### Pendiente / Deuda de seguridad
 
-## Producción: Azure SQL Database
-
-### Pasos en Azure Portal
-
-1. Crear un recurso "Azure SQL Database"
-2. Seleccionar tier (Basic para TPI es suficiente, ~5 USD/mes)
-3. Configurar firewall: permitir IP del servidor de despliegue
-4. Copiar el connection string desde "Connection strings" en el portal
-5. Configurar como Variable de Entorno en el servicio de despliegue (App Service, Azure Functions, etc.)
-
-### Diferencias con desarrollo
-
-| Aspecto | Dev (Docker) | Producción (Azure SQL) |
+| Issue | Prioridad | Detalle |
 |---|---|---|
-| Server | `localhost,1433` | `tu-servidor.database.windows.net` |
-| Auth | `sa` / password | Azure AD o SQL auth |
-| `TrustServerCertificate` | `True` | `False` (certificado real) |
-| `Encrypt` | `True` o `False` | `True` (siempre) |
-| Password en JSON | Sí (dev) | No (variables de entorno) |
+| JWT secret en appsettings.json | Crítica | Clave committed a repo, cualquier persona puede forjar tokens |
+| Credenciales admin en plaintext | Crítica | `SecurePassword123!` en appsettings.json |
+| Sin rate limiting | Alta | Login/register vulnerables a fuerza bruta |
+| Token en localStorage | Alta | Vulnerable a XSS |
+| Débil password policy | Media | Solo requiere longitud 8, sin complejidad |
+| Sin HSTS | Media | No hay middleware `UseHsts()` |
+| Sin validación JWT expiry en frontend | Media | jwt-decode no verifica expiración |
 
 ---
 
-## Riesgos y Consideraciones
+## Arquitectura — Clean Architecture
 
-| Riesgo | Mitigación |
-|---|---|
-| Password en `appsettings.json` | Usar User Secrets en dev, Variables de Entorno en prod |
-| `TrustServerCertificate=True` solo para dev | En producción se desactiva, se usa certificado CA |
-| Migraciones rompen datos en prod | Siempre usar `dotnet ef script` para generar SQL y aplicar manualmente en prod |
-| EF Core 9.x vs .NET 8 | El Data project usa EF Core 9.0.6 pero el target framework es net8.0. Verificar compatibilidad (EF Core 9 soporta .NET 8) |
-| Puerto 1433 ocupado | Cambiar el port mapping en `docker-compose.yml` (ej: `"1434:1433"`) |
+### Capas implementadas
+
+```
+Dsw2025Tpi.Api/            → Presentación (Controllers, Program.cs, DI)
+    ↓ referencia a
+Dsw2025Tpi.Application/    → Lógica de negocio (Services, DTOs, Validators, Exceptions)
+    ↓ referencia a
+Dsw2025Tpi.Domain/         → Modelo de dominio (Entities, Interfaces)
+    ↑ referencia a
+Dsw2025Tpi.Data/           → Infraestructura (DbContext, Repositories, Migrations)
+```
+
+### ⚠️ Problema de arquitectura detectado
+
+`Application.csproj` referencia a `Data.csproj`, lo cual crea una dependencia circular en Clean Architecture. La capa Application no debería conocer la capa de Data directamente — debería depender solo de Domain (interfaces).
+
+```
+Flujo correcto:  Api → Application → Domain ← Data
+Flujo actual:    Api → Application → Data → Domain  (Application conoce Data)
+```
 
 ---
 
-## Resumen de Cambios
+## Controllers — Endpoints Implementados
 
-| # | Archivo | Tipo | Complejidad |
+### AuthenticateController (`/api/auth`)
+
+| Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| 1 | `docker-compose.yml` | Crear | Baja |
-| 2 | `Domain/Entities/Product.cs` | Crear | Baja |
-| 3 | `Domain/Entities/Category.cs` | Crear | Baja |
-| 4 | `Domain/Entities/User.cs` | Crear | Baja |
-| 5 | `Domain/Entities/Order.cs` | Crear | Media (value objects embebidos) |
-| 6 | `Domain/Entities/OrderItem.cs` | Crear | Baja |
-| 7 | `Domain/Entities/PaymentMethod.cs` | Crear | Baja |
-| 8 | `Data/Dsw2025TpiContext.cs` | Modificar | Media (Fluent API) |
-| 9 | `Api/appsettings.json` | Modificar | Baja |
-| 10 | `Api/appsettings.Development.json` | Modificar | Baja |
-| 11 | `Api/Dsw2025Tpi.Api.csproj` | Modificar | Baja |
-| 12 | `Api/Program.cs` | Modificar | Baja |
-| 13 | `Data/Migrations/` | Auto-generado | N/A |
+| POST | `/api/auth/login` | Anónimo | Login, retorna `{ token }` |
+| POST | `/api/auth/register` | Anónimo | Registro, retorna mensaje de éxito |
 
-**Esfuerzo total estimado:** ~3-4 horas (incluyendo pruebas)
+### ProductsController (`/api/products`)
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| GET | `/api/products` | Anónimo | Catálogo público (solo activos), paginado |
+| GET | `/api/products/{id}` | Admin,User | Detalle de producto |
+| POST | `/api/products` | Admin | Crear producto |
+| PUT | `/api/products/{id}` | Admin | Actualizar producto |
+| PATCH | `/api/products/{id}` | Admin | Soft-delete (desactivar) |
+| GET | `/api/products/admin` | Admin | Listado admin (todos los estados), con filtros |
+
+### OrderController (`/api/orders`)
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| GET | `/api/orders` | Admin | Listar todas las órdenes, paginado |
+| POST | `/api/orders` | Admin,User | Crear orden (verifica stock, descuenta) |
+| GET | `/api/orders/{id}` | Admin | Detalle de orden con items |
+| PUT | `/api/orders/{id}` | Admin | Cambiar estado de orden |
+
+---
+
+## Servicios — Lógica de Negocio
+
+### ProductsManagementService
+
+- `GetProductById(Guid)` — Búsqueda por ID
+- `GetAllProducts()` — Todos los activos (sin paginación)
+- `GetProducts(FilterProduct)` — Filtro por status + búsqueda textual + paginación
+- `AddProduct(Request)` — Validación + unicidad SKU
+- `UpdateProduct(Guid, Request)` — Validación + unicidad SKU (excluye self)
+- `PatchProduct(Guid)` — Soft-delete, previene doble desactivación
+
+### OrdersManagementService
+
+- `GetOrderById(Guid)` — Con eager loading de OrderItems + Product
+- `GetAllOrders(SearchOrder)` — Filtra canceladas, valida CustomerId, parsea status, paginación
+- `AddOrder(Request)` — Validación completa, verifica stock por item, descuenta stock, crea Order + OrderItems
+- `UpdateOrderStatus(Guid, string)` — Transición de estado, restaura stock al cancelar
+
+### JwtTokenService
+
+- Genera JWT con claims: `sub` (username), `jti` (GUID), role, `id` (IdentityUser.Id)
+- Algoritmo: HMAC-SHA256
+- Expiración: 60 min (default, no configurable via appsettings)
+
+---
+
+## Lo que Falta Implementar
+
+### Prioridad Crítica (Seguridad)
+
+| # | Item | Esfuerzo | Detalle |
+|---|---|---|---|
+| 1 | Mover JWT secret a Variables de Entorno | Bajo | Secret en appsettings.json es un riesgo de seguridad |
+| 2 | Mover credenciales admin a Variables de Entorno | Bajo | User Secrets en dev, Key Vault en prod |
+| 3 | Agregar rate limiting | Medio | `Microsoft.AspNetCore.RateLimiting` en login/register |
+| 4 | Configurar expiry JWT configurable | Bajo | Agregar `ExpireInMinutes` a appsettings.json |
+| 5 | Fortalecer password policy | Bajo | Requerir mayúscula, número, carácter especial |
+
+### Prioridad Alta (Arquitectura y Calidad)
+
+| # | Item | Esfuerzo | Detalle |
+|---|---|---|---|
+| 6 | Implementar Unit of Work | Medio | `IUnitOfWork` con `SaveChangesAsync()` centralizado |
+| 7 | Corregir dependencia circular Application→Data | Medio | Application solo debe referenciar Domain |
+| 8 | Agregar global exception handling middleware | Medio | Reemplazar try/catch ad-hoc en controllers |
+| 9 | Eliminar `BaseController.cs` (código muerto) | Bajo | Ningún controller lo usa |
+| 10 | Corregir bugs en DbContext | Bajo | `BillingAddress.HasPrecision(15,2)`, `Order.Date.HasMaxLength(10)` |
+| 11 | Agregar unique index en `Product.Sku` | Bajo | Prevenir race condition en creación |
+| 12 | Corregir GUIDs duplicados en seed data | Bajo | `Products.json` tiene dos productos con mismo GUID |
+| 13 | Corregir typo `TotatAmount` → `TotalAmount` en DTOs | Bajo | Afecta frontend también |
+
+### Prioridad Media (Funcionalidad)
+
+| # | Item | Esfuerzo | Detalle |
+|---|---|---|---|
+| 14 | Crear entidad `Category` | Medio | Para agrupar productos |
+| 15 | Crear endpoint `GET /api/dashboard/stats` | Medio | Dashboard admin con datos reales |
+| 16 | Agregar `GET /api/orders/mine` para clientes | Medio | Clientes ven solo sus órdenes |
+| 17 | Agregar validación de expiración JWT en frontend | Bajo | Verificar `exp` antes de enviar request |
+| 18 | Configurar health check con SQL Server | Bajo | `AddHealthChecks().AddSqlServer()` |
+| 19 | Agregar Swagger security definition (Bearer) | Bajo | Configurar `AddSecurityDefinition` correctamente |
+
+### Prioridad Baja (Mejoras)
+
+| # | Item | Esfuerzo | Detalle |
+|---|---|---|---|
+| 20 | Agregar Serilog (logging estructurado) | Medio | JSON logging para producción |
+| 21 | Agregar API versioning | Medio | `/api/v1/products` |
+| 22 | Crear entidad `PaymentMethod` | Baja | Funcionalidad extendida |
+| 23 | Agregar paginación con límite max | Bajo | Prevenir `PageSize=999999` |
+| 24 | Implementar refresh tokens | Alto | Rotación de tokens sin re-login |
+| 25 | Mover token a HttpOnly cookie | Alto | Protección contra XSS |
+
+---
+
+## Orden de Ejecución Recomendado
+
+### Fase 1 — Seguridad inmediata (1-2 horas)
+1. Mover JWT secret y admin credentials a User Secrets / Variables de Entorno
+2. Configurar `ExpireInMinutes` en appsettings.json
+3. Fortalecer password policy
+4. Agregar unique index en `Product.Sku`
+
+### Fase 2 — Calidad de código (2-3 horas)
+5. Corregir bugs en DbContext (`BillingAddress`, `Order.Date`)
+6. Corregir GUIDs duplicados en seed data
+7. Corregir typo `TotatAmount`
+8. Eliminar `BaseController.cs`
+9. Agregar global exception handling middleware
+
+### Fase 3 — Arquitectura (3-4 horas)
+10. Implementar Unit of Work
+11. Corregir dependencia circular Application→Data
+12. Agregar rate limiting
+
+### Fase 4 — Funcionalidad (4-6 horas)
+13. Crear entidad Category
+14. Dashboard con datos reales
+15. Endpoint `orders/mine` para clientes
+16. Health check con SQL Server
+
+---
+
+## Resumen de Archivos del Proyecto
+
+```
+ICS/
+├── ICS_TPI2026_backend/
+│   ├── Dsw2025Tpi.sln
+│   ├── Dsw2025Tpi.Api/
+│   │   ├── Program.cs                    ← Configuración, DI, startup
+│   │   ├── appsettings.json              ← JWT key, connection string, admin creds
+│   │   ├── Controllers/
+│   │   │   ├── BaseController.cs         ← ⚠️ Código muerto
+│   │   │   ├── AuthenticateController.cs
+│   │   │   ├── ProductsController.cs
+│   │   │   └── OrderController.cs
+│   │   └── DependencyInjection/
+│   │       └── ServiceCollectionExtensions.cs
+│   ├── Dsw2025Tpi.Application/
+│   │   ├── Dtos/                         ← 6 archivos DTO
+│   │   ├── Services/
+│   │   │   ├── JwtTokenService.cs
+│   │   │   ├── ProducstManagementServices.cs  ← ⚠️ Typo en nombre
+│   │   │   └── OrdersManagementServices.cs
+│   │   ├── Validation/                   ← 4 validadores estáticos
+│   │   └── Exceptions/                   ← 3 excepciones custom
+│   ├── Dsw2025Tpi.Domain/
+│   │   ├── Entities/
+│   │   │   ├── EntityBase.cs
+│   │   │   ├── Customer.cs
+│   │   │   ├── Product.cs
+│   │   │   ├── Order.cs
+│   │   │   ├── OrderItem.cs
+│   │   │   └── OrderStatus.cs
+│   │   └── Interfaces/
+│   │       └── IRepository.cs
+│   └── Dsw2025Tpi.Data/
+│       ├── Dsw2025TpiContext.cs
+│       ├── AuthenticateContext.cs
+│       ├── Repositories/
+│       │   └── EfRepository.cs
+│       ├── Helpers/
+│       │   └── DbContextExtensions.cs
+│       ├── Sources/                      ← Seed data JSON
+│       └── Migrations/
+│
+├── ICS_TPI2026_frontend/
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx
+│       └── modules/
+│           ├── auth/                     ← Login, Register, ProtectedRoute
+│           ├── products/                 ← CRUD admin + catálogo público
+│           ├── orders/                   ← List admin + create
+│           ├── cart/                     ← Carrito + checkout
+│           ├── home/                     ← Dashboard admin
+│           ├── shared/                   ← 9 componentes + hooks + API
+│           └── templates/                ← Dashboard layout
+│
+├── README.md
+├── PLAN.md                               ← Este archivo
+├── TP1_Resuelto.md
+└── DB_Config.md
+```
