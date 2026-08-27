@@ -418,22 +418,62 @@ Los modales de login y register se comunican via window.dispatchEvent('open-logi
 
 ---
 
-##### Hallazgo AT-18 — Interceptor usa window.location.href (MEDIO)
+##### Hallazgo AT-59 — Código duplicado menú+modales en cada página de usuario (ALTO)
 
-**Ubicacion:** Frontend — shared/api/axiosInstance.js lineas 21-36
+**Ubicación:** Frontend — ListProductsUserPage.jsx, CartPage.jsx, ListOrdersPage.jsx (cualquier página de usuario)
 
-**Tipo:** Calidad (Medium — Tight Coupling)
+**Tipo:** Arquitectura (High — Massive Layout Duplication)
 
-**Descripcion:**
-El interceptor de respuesta hace window.location.href = '/login' en 401 para rutas admin, causando reload completo de la SPA.
+**Descripción:**
+Cada página de usuario replica el mismo patrón: `useState` para modales, `window.addEventListener('open-login')`, `window.addEventListener('open-register')`, y los mismos 4 componentes (`UserHeaderMenu`, `MobileSideMenu`, `LoginModal`, `RegisterModal`). El cálculo de `totalItems` del carrito también se duplica en cada página.
+
+**Evidencia:**
+
+```javascript
+// Copiado en ListProductsUserPage.jsx, CartPage.jsx, ListOrdersPage.jsx
+const [showLoginModal, setShowLoginModal] = useState(false);
+const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+useEffect(() => {
+  const handleOpenLogin = () => setShowLoginModal(true);
+  const handleOpenRegister = () => setShowRegisterModal(true);
+  window.addEventListener('open-login', handleOpenLogin);
+  window.addEventListener('open-register', handleOpenRegister);
+  return () => {
+    window.removeEventListener('open-login', handleOpenLogin);
+    window.removeEventListener('open-register', handleOpenRegister);
+  };
+}, []);
+```
 
 **Consecuencias:**
-- Cada expiracion de token pierde todo el estado en memoria de React
-- El interceptor conoce la estructura de rutas (acoplado a /admin/)
+- Modificar el flujo de login/register requiere cambiar 3+ archivos
+- Duplicación de lógica de layout en cada página
+- Propenso a inconsistencias entre páginas
 
-**Recomendacion:** Inyectar navegacion via callback o usar el contexto de auth para notificar el 401.
+**Recomendación:** Crear componente `AppShell` o `UserLayout` que encapsule header, mobile menu y modales. El contenido de cada página se renderiza como children.
 
-**Impacto:** Medio | **Esfuerzo:** Medio (~1-2 horas)
+**Impacto:** Alto | **Esfuerzo:** Medio (~2 horas)
+
+---
+
+##### Hallazgo AT-17 — window.dispatchEvent para comunicación entre componentes (MEDIO)
+
+**Ubicación:** Frontend — LoginModal.jsx, RegisterModal.jsx, ListProductsUserPage.jsx, CartPage.jsx
+
+**Tipo:** Calidad (Medium — Anti-Pattern)
+
+**Descripción:**
+Los modales de login y register se comunican via `window.dispatchEvent('open-login')` / `window.dispatchEvent('open-register')`. Esto bypassa el flujo de datos de React.
+
+**Consecuencias:**
+- Invisible en React DevTools
+- Imposible de testear
+- Acoplamiento invisible entre componentes
+
+**Recomendación:** Usar Context o estado levantado en un componente padre comun.
+
+**Impacto:** Medio | **Esfuerzo:** Medio (~1 hora)
 
 ---
 
@@ -474,16 +514,16 @@ Para el listado completo de bugs y deuda tecnica adicionales (diferenciados entr
 | | Impacto Alto | Impacto Critico |
 |---|---|---|
 | **Esfuerzo Bajo** | — | AT-01, AT-02 |
-| **Esfuerzo Medio** | AT-06, AT-07, AT-09, AT-04, AT-16, AT-17, AT-18 | — |
+| **Esfuerzo Medio** | AT-06, AT-07, AT-09, AT-04, AT-16, AT-59, AT-17 | — |
 
 ### Leyenda de prioridad
 
 - **P1 — Critico (hacer ya):** AT-01 + AT-02 — Secret y credenciales expuestas. Si el repo es publico, el sistema esta comprometido.
 - **P2 — Hacer pronto:** AT-06 + AT-07 + AT-09 — Arquitectura: dependencia circular, UoW, exception handling.
 - **P3 — Planificar:** AT-04 + AT-16 — Seguridad en frontend y estado global del carrito.
-- **P4 — Mejoras:** AT-17 + AT-18 — Frontend patterns.
+- **P4 — Mejoras:** AT-59 + AT-17 — Frontend patterns: layout duplicado y comunicación entre componentes.
 
-> **Nota:** Para bugs y deuda tecnica adicional (incluyendo AT-03 repositorio generico, AT-28 backend cookies, AT-29 seguridad cookies), ver `TP1_Hallazgos_Adicionales.md`.
+> **Nota:** Para bugs y deuda tecnica adicional (incluyendo AT-03 repositorio generico, AT-18 interceptor, AT-28 backend cookies, AT-29 seguridad cookies), ver `TP1_Hallazgos_Adicionales.md`.
 
 ---
 
@@ -498,10 +538,10 @@ Para el listado completo de bugs y deuda tecnica adicionales (diferenciados entr
 | 5 | AT-09 | Crear GlobalExceptionMiddleware | Medio | Alto | P2 |
 | 6 | AT-04 | Mover token a HttpOnly cookie (o BFF pattern) | Medio | Alto | P3 |
 | 7 | AT-16 | Convertir useCart a Context para shared state | Medio | Alto | P3 |
-| 8 | AT-17 | Reemplazar window.dispatchEvent por Context | Medio | Medio | P4 |
-| 9 | AT-18 | Desacoplar interceptor de navegacion | Medio | Medio | P4 |
+| 8 | AT-59 | Extraer AppShell para eliminar layout duplicado | Medio | Alto | P4 |
+| 9 | AT-17 | Reemplazar window.dispatchEvent por Context | Medio | Medio | P4 |
 
-> **Nota:** Para bugs y deuda tecnica adicional (20 hallazgos mas, incluyendo AT-28 backend cookies y AT-29 seguridad cookies), ver `TP1_Hallazgos_Adicionales.md`.
+> **Nota:** Para bugs y deuda tecnica adicional (20 hallazgos mas, incluyendo AT-18 interceptor, AT-28 backend cookies y AT-29 seguridad cookies), ver `TP1_Hallazgos_Adicionales.md`.
 
 ---
 
@@ -521,9 +561,9 @@ El proyecto tiene una base solida implementada: Clean Architecture en 4 capas, e
 
 | Tipo | Backend | Frontend | Total |
 |------|---------|----------|-------|
-| **Deuda tecnica (destacada)** | 4 (AT-01, AT-02, AT-06, AT-07, AT-09) | 5 (AT-04, AT-16, AT-17, AT-18) | **9** |
-| **Bugs** | 5 (AT-27, AT-13, AT-12, AT-25, AT-15) | 1 (AT-19) | **6** |
-| **Deuda tecnica (adicional)** | 11 (AT-03, AT-05, AT-28, AT-29, AT-10, AT-11, AT-14, AT-26, AT-24, AT-08, AT-23) | 3 (AT-20, AT-21, AT-22) | **14** |
+| **Deuda tecnica (destacada)** | 4 (AT-01, AT-02, AT-06, AT-07, AT-09) | 5 (AT-04, AT-16, AT-59, AT-17) | **9** |
+| **Bugs** | 5 (AT-27, AT-13, AT-12, AT-25, AT-15) | 2 (AT-19, AT-18) | **7** |
+| **Deuda tecnica (adicional)** | 11 (AT-03, AT-05, AT-28, AT-29, AT-10, AT-11, AT-14, AT-26, AT-24, AT-08, AT-23) | 2 (AT-20, AT-21, AT-22) | **13** |
 | **Total** | **20** | **9** | **29** |
 
 ### Esfuerzo total estimado para resolver todo: ~18-23 horas

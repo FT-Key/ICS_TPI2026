@@ -611,6 +611,21 @@ Fallback manual de `fetch()` después de que Axios falla. Ningún otro servicio 
 
 ---
 
+##### BUG AT-18 — Interceptor usa window.location.href causando pérdida de estado (MEDIO)
+
+**Ubicación:** `shared/api/axiosInstance.js` líneas 21-36
+
+**Tipo:** Bug (Medium — State Loss + Tight Coupling)
+
+**Descripción:**
+El interceptor de respuesta ejecuta `window.location.href = '/login'` en 401 para rutas admin, causando reload completo de la SPA.
+
+**Consecuencia:** Cada expiración de token pierde **todo el estado en memoria de React** (carrito, formularios a medio llenar, datos de navegación). El interceptor también conoce la estructura de rutas (`/admin/`), acoplándose a la configuración actual.
+
+**Recomendación:** Inyectar navegación via callback desde el contexto de auth, o usar `react-router` navigate para redirigir sin perder estado.
+
+---
+
 ##### BUG AT-53 — `searchTerm` no en dependencias de `useEffect` en ListProductsUserPage (ALTO)
 
 **Ubicación:** `products/pages/ListProductsUserPage.jsx` línea 77-79
@@ -744,21 +759,6 @@ Los modales se comunican via `window.dispatchEvent('open-login')`. Bypass del fl
 **Consecuencia:** Invisible en React DevTools, imposible de testear, acoplamiento invisible.
 
 **Recomendación:** Usar Context o estado levantado en un componente padre común.
-
----
-
-##### Deuda AT-18 — Interceptor usa window.location.href (MEDIO)
-
-**Ubicación:** `shared/api/axiosInstance.js` líneas 21-36
-
-**Tipo:** Calidad (Medium — Tight Coupling)
-
-**Descripción:**
-El interceptor hace `window.location.href = '/login'` en 401, causando reload completo de la SPA.
-
-**Consecuencia:** Pierde todo el estado en memoria de React, acoplado a la estructura de rutas.
-
-**Recomendación:** Inyectar navegación via callback o usar contexto de auth.
 
 ---
 
@@ -1106,6 +1106,7 @@ No hay ninguna llamada a `React.memo`, `useMemo`, o `useCallback`. Cada cambio d
 | ID | Hallazgo | Severidad |
 |----|----------|-----------|
 | AT-15 | createOrder.js rompe contrato | Medio |
+| AT-18 | Interceptor pierde estado con window.location.href | Medio |
 | AT-19 | listServices.js fallback fetch | Medio |
 | AT-53 | searchTerm no en deps useEffect (UserPage) | Alto |
 | AT-64 | searchTerm no en deps useEffect (OrdersPage) | Alto |
@@ -1121,7 +1122,6 @@ No hay ninguna llamada a `React.memo`, `useMemo`, o `useCallback`. Cada cambio d
 | AT-04 | Token en localStorage | Alto |
 | AT-16 | useCart no es shared state | Alto |
 | AT-17 | window.dispatchEvent anti-pattern | Medio |
-| AT-18 | Interceptor con window.location.href | Medio |
 | AT-20 | withCredentials innecesario | Bajo |
 | AT-21 | Imágenes hardcoded | Bajo |
 | AT-22 | SweetAlert2 no usado | Bajo |
