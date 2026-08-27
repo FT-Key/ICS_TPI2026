@@ -227,6 +227,14 @@ Flujo actual:    Api → Application → Data → Domain  (Application conoce Da
 | 4 | Configurar expiry JWT configurable | Bajo | Agregar `ExpireInMinutes` a appsettings.json |
 | 5 | Fortalecer password policy | Bajo | Requerir mayúscula, número, carácter especial |
 
+### Prioridad Alta (Seguridad — Cookies)
+
+| # | Item | Esfuerzo | Detalle |
+|---|---|---|---|
+| 6 | Backend: soporte autenticación por cookies | Medio | Set-Cookie en login, leer cookie en endpoints, CORS AllowCredentials |
+| 7 | Frontend: migrar token a HttpOnly cookie | Alto | Dejar de usar localStorage, enviar cookies con Axios |
+| 8 | Seguridad avanzada de cookies | Alto | Secure + SameSite, refresh token en cookie separada, revocación |
+
 ### Prioridad Alta (Infraestructura — Base de Datos)
 
 | # | Item | Esfuerzo | Detalle |
@@ -500,8 +508,10 @@ El frontend arranca en `http://localhost:5173`. Proxy de Vite redirige `/api` al
 | **US-18** | Como admin, quiero que las **credenciales admin estén en variables de entorno**, para que no se expongan en el repo. | Crítica | Baja | Pendiente |
 | **US-19** | Como admin, quiero **rate limiting en login/register**, para prevenir ataques de fuerza bruta. | Alta | Media | Pendiente |
 | **US-20** | Como admin, quiero una **password policy más fuerte** (mayúsculas, números, caracteres especiales), para mejorar la seguridad. | Alta | Baja | Pendiente |
-| **US-21** | Como admin, quiero que el token se almacene en **HttpOnly cookie** en vez de localStorage, para prevenir ataques XSS. | Alta | Alta | Pendiente |
+| **US-21** | Como admin, quiero que el token se almacene en **HttpOnly cookie** en vez de localStorage, para prevenir ataques XSS. Requiere cambios en frontend (leer/escribir cookies) y backend (enviar cookie en login, leer de cookie en endpoints). | Alta | Alta | Pendiente |
 | **US-22** | Como admin, quiero **refresh tokens**, para que los usuarios no tengan que re-loguearse cada 60 min. | Media | Alta | Pendiente |
+| **US-35** | Como admin, quiero que el **backend soporte autenticación por cookies** (enviar Set-Cookie en login, leer cookie en endpoints protegidos, CORS con AllowCredentials), para que la migración de localStorage a cookies funcione. | Alta | Media | Pendiente |
+| **US-36** | Como admin, quiero **medidas de seguridad avanzadas en cookies** (HttpOnly + Secure + SameSite, refresh token en cookie separada, revocación de tokens), para que las cookies no den falsa sensación de seguridad. | Media | Alta | Pendiente |
 
 ### Épica 4: Calidad de Código
 
@@ -555,22 +565,136 @@ El frontend arranca en `http://localhost:5173`. Proxy de Vite redirige `/api` al
 17. Corregir dependencia circular Application→Data
 18. Agregar rate limiting
 
-### Fase 4 — Funcionalidad Backend (4-6 horas)
-19. Crear entidad Category
-20. Dashboard con datos reales
-21. Endpoint `orders/mine` para clientes
-22. Health check con SQL Server
+### Fase 4 — Seguridad cookies (3-4 horas)
+19. Backend: configurar Set-Cookie en login endpoint
+20. Backend: crear middleware para leer JWT de cookie
+21. Backend: actualizar CORS para AllowCredentials
+22. Frontend: migrar de localStorage a HttpOnly cookies
+23. Frontend: actualizar Axios para enviar cookies
+24. Implementar refresh token en cookie separada
+25. Agregar medidas de seguridad (Secure, SameSite)
 
-### Fase 5 — Frontend UX/UI (6-8 horas)
-23. Crear página Home con productos destacados
-24. Crear página "Productos" dedicada
-25. Crear página "Sobre Nosotros"
-26. Crear componente Footer
-27. Ocultar botón carrito si no hay usuario logueado
-28. Header dinámico según estado de autenticación
-29. Toast notifications y skeleton loaders
-30. Diseño responsivo completo (mobile-first)
-31. Página 404 personalizada
+### Fase 5 — Funcionalidad Backend (4-6 horas)
+26. Crear entidad Category
+27. Dashboard con datos reales
+28. Endpoint `orders/mine` para clientes
+29. Health check con SQL Server
+
+### Fase 6 — Frontend UX/UI (6-8 horas)
+30. Crear página Home con productos destacados
+31. Crear página "Productos" dedicada
+32. Crear página "Sobre Nosotros"
+33. Crear componente Footer
+34. Ocultar botón carrito si no hay usuario logueado
+35. Header dinámico según estado de autenticación
+36. Toast notifications y skeleton loaders
+37. Diseño responsivo completo (mobile-first)
+38. Página 404 personalizada
+
+---
+
+## Coordinación con Tablero Trello (Scrum Manual)
+
+### Estructura del Tablero
+
+El tablero Trello se organiza con las siguientes listas:
+
+```
+| Backlog | Sprint 1 | En Progreso | Revisión | Hecho |
+|---------|----------|-------------|----------|-------|
+```
+
+### Épicas en el Tablero
+
+Cada épica se representa con una **etiqueta de color** en Trello:
+
+| Etiqueta | Épica | Color sugerido |
+|----------|-------|----------------|
+| Seguridad | Épica 3 | Rojo |
+| Arquitectura | Épica 4 | Naranja |
+| Backend | Épica 2 | Azul |
+| Frontend | Épica 1 | Verde |
+| Infraestructura | Épica 5 | Morado |
+
+### Historias de Usuario → Tarjetas Trello
+
+Cada historia de usuario (US-XX) del backlog se convierte en una tarjeta en Trello con:
+
+**Formato de tarjeta:**
+```
+[Título de la historia]
+
+Descripción:
+- Criterios de aceptación
+- Archivos a modificar
+- Dependencias con otras historias
+
+Checklist:
+- [ ] Paso 1
+- [ ] Paso 2
+- [ ] ...
+```
+
+### Historias de Usuario para el Tablero
+
+#### Épica 3: Seguridad (prioridad para Sprint 1)
+
+| Tarjeta Trello | US | Descripción |
+|----------------|-----|-------------|
+| Mover JWT secret a env vars | US-17 | User Secrets en dev, variables de entorno en prod |
+| Mover credenciales admin a env vars | US-18 | User Secrets en dev, variables de entorno en prod |
+| Rate limiting en auth | US-19 | Microsoft.AspNetCore.RateLimiting |
+| Password policy fuerte | US-20 | RequireDigit, RequireUppercase, etc. |
+| Backend: soporte cookies | US-25 | Set-Cookie en login, middleware de lectura, CORS |
+| Frontend: migrar a cookies | US-21 | LocalStorage → HttpOnly cookies |
+| Seguridad avanzada cookies | US-26 | Secure, SameSite, refresh token, revocación |
+
+#### Épica 4: Calidad de Código
+
+| Tarjeta Trello | US | Descripción |
+|----------------|-----|-------------|
+| Global exception middleware | US-23 | ProblemDetails consistente |
+| Unit of Work | US-24 | Atomicidad en operaciones multi-tabla |
+| Dependencia circular | US-25 | Application solo refiere a Domain |
+| Bugs DbContext | US-26 | BillingAddress, Order.Date, GUIDs duplicados |
+| Typo TotatAmount | US-27 | Renombrar en DTOs y frontend |
+| Eliminar código muerto | US-28 | BaseController.cs |
+
+### Flujo de Trabajo en Trello
+
+1. **Backlog:** Todas las historias están aquí inicialmente
+2. **Sprint 1:** Se mueven las historias priorizadas para el sprint actual
+3. **En Progreso:** Cuando alguien empieza a trabajar en una historia
+4. **Revisión:** Cuando el código está listo para review
+5. **Hecho:** Cuando está mergeado y verificado
+
+### Reglas de Coordinación
+
+- **Una historia a la vez** por persona (evitar WIP limit)
+- **Dependencias claras:** Si una historia depende de otra, marcarla en la tarjeta
+- **Definition of Done:**
+  - [ ] Código implementado
+  - [ ] Tests pasan (si existen)
+  - [ ] No rompe funcionalidad existente
+  - [ ] Documentación actualizada (si aplica)
+  - [ ] Tarjeta movida a "Hecho"
+
+### Sugerencia de Sprint 1 (2 semanas)
+
+| Prioridad | Historias | Esfuerzo estimado |
+|-----------|-----------|-------------------|
+| Crítica | US-17, US-18 | 1 hora |
+| Alta | US-19, US-20, US-25 | 4 horas |
+| Media | US-26, US-27, US-28 | 3 horas |
+| **Total Sprint 1** | | **~8 horas** |
+
+### Sugerencia de Sprint 2 (2 semanas)
+
+| Prioridad | Historias | Esfuerzo estimado |
+|-----------|-----------|-------------------|
+| Alta | US-21 (cookies frontend), US-25 (cookies backend) | 6 horas |
+| Media | US-26 (seguridad cookies), US-23 (exception middleware) | 5 horas |
+| **Total Sprint 2** | | **~11 horas** |
 
 ---
 
@@ -578,6 +702,13 @@ El frontend arranca en `http://localhost:5173`. Proxy de Vite redirige `/api` al
 
 ```
 ICS/
+├── docs/
+│   ├── PLAN.md                               ← Este archivo
+│   ├── TP1_Resuelto.md                       ← 9 deudas técnicas destacadas
+│   ├── TP1_Hallazgos_Adicionales.md          ← Bugs + deuda técnica (20 hallazgos)
+│   ├── DB_Config.md                          ← Configuración de base de datos
+│   └── ICS2026_TP1.pdf                       ← Enunciado del TP1
+│
 ├── ICS_TPI2026_backend/
 │   ├── Dsw2025Tpi.sln
 │   ├── Dsw2025Tpi.Api/
@@ -631,8 +762,5 @@ ICS/
 │           ├── shared/                   ← 9 componentes + hooks + API
 │           └── templates/                ← Dashboard layout
 │
-├── README.md
-├── PLAN.md                               ← Este archivo
-├── TP1_Resuelto.md
-└── DB_Config.md
+└── README.md
 ```
