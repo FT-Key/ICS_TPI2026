@@ -20,7 +20,8 @@ Thumbs.db
 # Playwright MCP
 .playwright-mcp/
 
-# OpenCode agents/skills (local config, not shared)
+# OpenCode (local config, not shared)
+opencode.json
 .opencode/
 agents.md
 skills/
