@@ -4,6 +4,7 @@ using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Dsw2025Tpi.Api.Controllers;
 
@@ -38,7 +39,19 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            
+            // BOLA Prevention: Obtener CustomerId del JWT claim "id"
+            var userIdClaim = User.FindFirst("id");
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var authenticatedCustomerId))
+            {
+                return Unauthorized("Token inválido: no se encontró el ID del usuario.");
+            }
+
+            // Validar que el CustomerId del request coincida con el del JWT
+            if (request.CustomerId != authenticatedCustomerId)
+            {
+                return Forbid("No tiene permiso para crear órdenes para otro cliente.");
+            }
+
             var Order = await _service.AddOrder(request);
             
             return CreatedAtAction(nameof(GetOrderById), new { id = Order.Id }, Order);
