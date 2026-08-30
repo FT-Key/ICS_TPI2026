@@ -1,766 +1,504 @@
-# PLAN — Estado Actual y Plan de Implementación
+# PLAN — Plan de Implementacion Detallado
 
-## Objetivo
-
-Documento vivo que refleja el estado real del proyecto, lo que falta implementar y el plan priorizado para avanzar. Se actualiza conforme se completa cada item.
+**Proyecto:** E-commerce ICS
+**Stack:** React 19 + .NET 8 + SQL Server
+**Objetivo:** Guia paso a paso desde el estado actual hasta el despliegue en produccion
 
 ---
 
-## Estado Actual del Proyecto
+## Orden de Prioridad
 
-### Backend
+1. **Bugs** — Corregir errores que rompen funcionalidad o seguridad
+2. **Deuda Tecnica** — Resolver problemas de arquitectura y calidad
+3. **Mejoras** — Nuevas funcionalidades y UX
 
-| Componente | Estado | Detalle |
+---
+
+## Historias de Usuario — Sprint Backlog (10 Hallazgos TP1)
+
+Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos detallados en `TP1_Resuelto.md`.
+
+### Backend (4 hallazgos)
+
+| ID | Historia | Hallazgo | Prioridad | Esfuerzo |
+|---|---|---|---|---|
+| **US-17** | Como admin, quiero que el JWT secret no este en el codigo fuente | AT-01 | Critica | Bajo |
+| **US-18** | Como admin, quiero que las credenciales admin esten en variables de entorno | AT-02 | Critica | Bajo |
+| **US-24** | Como developer, quiero un Unit of Work que atomicice operaciones multi-tabla | AT-07 | Alta | Media |
+| **US-23** | Como developer, quiero un global exception handling middleware | AT-09 | Alta | Media |
+
+### Frontend (5 hallazgos)
+
+| ID | Historia | Hallazgo | Prioridad | Esfuerzo |
+|---|---|---|---|---|
+| **US-21** | Como admin, quiero que el token se almacene en HttpOnly cookie | AT-04 | Alta | Alta |
+| **US-35** | Como admin, quiero que el backend soporte autenticacion por cookies | AT-28 | Alta | Media |
+| **US-16** | Como developer, quiero convertir useCart a Context para shared state | AT-16 | Alta | Media |
+| **US-59** | Como developer, quiero extraer AppShell para eliminar layout duplicado | AT-59 | Alta | Media |
+| **US-17F** | Como developer, quiero reemplazar window.dispatchEvent por Context | AT-17 | Media | Media |
+
+### Arquitectura (1 hallazgo)
+
+| ID | Historia | Hallazgo | Prioridad | Esfuerzo |
+|---|---|---|---|---|
+| **US-25** | Como developer, quiero corregir la dependencia circular Application->Data | AT-06 | Alta | Media |
+
+---
+
+## Historias de Usuario — Hallazgos Adicionales (Clasificados por Prioridad)
+
+### Prioridad Critica
+
+| ID | Historia | Hallazgo | Capa | Esfuerzo |
+|---|---|---|---|---|
+| **US-27** | Corregir BOLA en creacion de ordenes (validar CustomerId del JWT) | AT-27 | BE | Bajo |
+| **US-30** | Migrar de LocalDB a Docker SQL Server | AT-26 | BE | Media |
+
+### Prioridad Alta
+
+| ID | Historia | Hallazgo | Capa | Esfuerzo |
+|---|---|---|---|---|
+| **US-26** | Corregir bugs en DbContext (BillingAddress, Order.Date, GUIDs) | AT-10,11,13 | BE | Bajo |
+| **US-28** | Corregir typo TotatAmount -> TotalAmount en DTOs y frontend | AT-14 | BE+FE | Bajo |
+| **US-29** | Eliminar BaseController.cs y imports no usados | AT-08,44 | BE | Bajo |
+| **US-31** | Corregir validacion inconsistente UnitPrice | AT-42 | BE | Bajo |
+| **US-32** | Agregar unique index en Product.Sku | AT-12 | BE | Bajo |
+| **US-33** | Corregir FK cascade Customer->Orders (Restrict) | AT-48 | BE | Bajo |
+| **US-34** | Corregir Error 500 por usuario sin rol (retornar 403) | AT-49 | BE | Bajo |
+| **US-36** | Corregir createOrder.js contrato {data, error} | AT-15 | FE | Bajo |
+| **US-37** | Eliminar fallback fetch en listServices.js | AT-19 | FE | Bajo |
+| **US-38** | Corregir interceptor window.location.href (usar navigate) | AT-18 | FE | Media |
+| **US-39** | Corregir searchTerm en deps de useEffect (UserPage + OrdersPage) | AT-53,64 | FE | Bajo |
+| **US-40** | Corregir useDeleteQuantity closure stale | AT-56 | FE | Bajo |
+| **US-41** | Corregir contrato inconsistente en register | AT-57 | FE | Bajo |
+| **US-42** | Detectar token expirado al cargar la app | AT-72 | FE | Bajo |
+| **US-43** | Auto-loguear despues del registro | AT-73 | FE | Bajo |
+| **US-44** | Paginacion en BD (no en memoria) | AT-30 | BE | Media |
+| **US-45** | Transaccion en operaciones de stock (race condition) | AT-31 | BE | Media |
+| **US-46** | Agregar AsNoTracking en queries de solo lectura | AT-33 | BE | Bajo |
+| **US-47** | Password policy fuerte (US-20) | AT-05 | BE | Bajo |
+| **US-48** | Rate limiting en login/register (US-19) | -- | BE | Media |
+| **US-49** | CustomerValidator invocar en registro | AT-36 | BE | Bajo |
+| **US-50** | RegistrationService en Application (no en Controller) | AT-34 | BE | Media |
+| **US-51** | Servicios con interfaces (IProductsService, IOrdersService) | AT-51 | BE | Media |
+| **US-52** | LoginModel/RegisterModel con Data Annotations | AT-52 | BE | Bajo |
+| **US-53** | Mapeo DTO centralizado (DRY) | AT-37 | BE | Media |
+| **US-54** | DateTime.UtcNow en vez de DateTime.Now | AT-32 | BE | Bajo |
+| **US-55** | DI centralizada en ServiceCollectionExtensions | AT-35 | BE | Bajo |
+| **US-56** | CORS configurable por entorno | AT-46 | BE | Bajo |
+| **US-57** | Respuesta de registro JSON (no string plano) | AT-47 | BE | Bajo |
+| **US-58** | Endpoints GetAuthProducts eliminar o diferenciar | AT-39 | BE | Bajo |
+| **US-59** | Soft delete reversible (toggle enable/disable) | AT-40 | BE | Bajo |
+| **US-60** | Logger en OrdersManagementService | AT-41 | BE | Bajo |
+| **US-61** | TotalAmount computed persistir o calcular en DTO | AT-38 | BE | Bajo |
+| **US-62** |_health check con SQL Server | AT-31 | BE | Bajo |
+
+### Prioridad Media
+
+| ID | Historia | Hallazgo | Capa | Esfuerzo |
+|---|---|---|---|---|
+| **US-63** | Crear entidad Category | -- | BE+FE | Media |
+| **US-64** | Dashboard con datos reales (endpoint stats) | -- | BE+FE | Media |
+| **US-65** | Endpoint GET /api/orders/mine para clientes | -- | BE+FE | Media |
+| **US-66** | Toast notifications (exito/error) | -- | FE | Media |
+| **US-67** | Skeleton loaders durante carga | -- | FE | Bajo |
+| **US-68** | Diseno responsivo completo (mobile-first) | -- | FE | Media |
+| **US-69** | Estilos globales colisionan (elements.css) | AT-67 | FE | Media |
+| **US-70** | Accessibility: select/input sin labels | AT-68,69 | FE | Bajo |
+| **US-71** | Modal con focus trap, Escape, role="dialog" | AT-70 | FE | Media |
+| **US-72** | Dashboard sidebar mobile con overlay backdrop | AT-76 | FE | Bajo |
+| **US-73** | Body text-[2rem] corregir a text-base | AT-75 | FE | Bajo |
+| **US-74** | setTimeout cleanup en RegisterForm | AT-55 | FE | Bajo |
+| **US-75** | useNavigate import no usado eliminar | AT-54 | FE | Bajo |
+| **US-76** | Button.jsx if vacio eliminar | AT-62 | FE | Bajo |
+| **US-77** | URLs API inconsistentes estandarizar | AT-63 | FE | Bajo |
+| **US-78** | SVG icons inline extraer a componentes | AT-66 | FE | Bajo |
+| **US-79** | Sin React.memo/useMemo/useCallback agregar | AT-60 | FE | Media |
+| **US-80** | TotalItems/totalAmount con useMemo | AT-61 | FE | Bajo |
+| **US-81** | fetchOrders con useCallback | AT-65 | FE | Bajo |
+| **US-82** | Home descarga 20 ordenes innecesariamente | AT-71 | FE | Bajo |
+| **US-83** | navigate en formularios nunca se ejecuta | AT-74 | FE | Bajo |
+| **US-84** | Imagenes hardcoded mover a assets/ | AT-21 | FE | Bajo |
+| **US-85** | SweetAlert2 desinstalar | AT-22 | FE | Bajo |
+
+### Prioridad Baja
+
+| ID | Historia | Hallazgo | Capa | Esfuerzo |
+|---|---|---|---|---|
+| **US-86** | Pagina Home con banner y destacados | -- | FE | Media |
+| **US-87** | Pagina "Productos" dedicada con filtros | -- | FE | Media |
+| **US-88** | Pagina "Sobre Nosotros" | -- | FE | Baja |
+| **US-89** | Componente Footer | -- | FE | Baja |
+| **US-90** | Ocultar boton carrito sin usuario logueado | -- | FE | Baja |
+| **US-91** | Header dinamico segun estado auth | -- | FE | Media |
+| **US-92** | Pagina 404 personalizada | -- | FE | Baja |
+| **US-93** | Serilog (logging estructurado) | -- | BE | Media |
+| **US-94** | API versioning (/api/v1/) | -- | BE | Media |
+| **US-95** | Refresh tokens | -- | BE+FE | Alta |
+| **US-96** | TypeScript en frontend | -- | FE | Muy Alta |
+
+---
+
+## Fases de Implementacion
+
+### Fase 0 — Setup y Base de Datos (30 min)
+
+**Objetivo:** Entorno funcional con Docker SQL Server
+
+| Paso | Archivo | Accion |
 |---|---|---|
-| Arquitectura en capas | ✅ Implementada | Domain → Application → Data → Api |
-| Entidades de dominio | ✅ 4 de 6 | Customer, Product, Order, OrderItem |
-| DbContext (Business) | ✅ Configurado | Fluent API, 4 DbSets, seed data |
-| DbContext (Identity) | ✅ Configurado | ASP.NET Identity con tablas custom |
-| Migraciones EF Core | ✅ Existen | 2 migraciones Business + 1 Identity |
-| Repositorio genérico | ✅ Implementado | `EfRepository` con CRUD completo |
-| Controllers | ✅ 3 implementados | Auth, Products, Orders |
-| Servicios de negocio | ✅ 3 implementados | Products, Orders, JwtToken |
-| DTOs | ✅ 6 archivos | Customer, Product, Order, OrderItem, Login, Register |
-| Validadores | ✅ 4 implementados | Estáticos, manuales if/throw |
-| Excepciones personalizadas | ✅ 3 implementadas | Application, Duplicated, NotFound |
-| Autenticación JWT | ✅ Configurada | ASP.NET Identity + JwtBearer |
-| CORS | ✅ Configurado | localhost:5173/5174 |
-| Swagger | ✅ Configurado | Swashbuckle |
-| Seed data | ✅ Configurado | Products, Customers, Orders desde JSON |
-| Password hashing | ✅ Implementado | ASP.NET Identity (PBKDF2) |
+| 0.1 | `ICS_TPI2026_backend/docker-compose.yml` | Crear con SQL Server 2022 |
+| 0.2 | `Dsw2025Tpi.Api/appsettings.json` | Actualizar connection string a Docker |
+| 0.3 | `Dsw2025Tpi.Api/appsettings.Development.json` | Crear override para dev |
+| 0.4 | Migraciones EF Core | Eliminar y recrear |
+| 0.5 | `.env.development` (frontend) | Alinear puerto del backend |
+| 0.6 | `docs/DB_Config.md` | Actualizar documentacion |
 
-### Frontend
-
-| Componente | Estado | Detalle |
-|---|---|---|
-| React 19 + Vite + Tailwind | ✅ Configurado | Build tool y estilos |
-| Módulo Auth | ✅ Funcional | Login, Register, ProtectedRoute, context |
-| Módulo Products (Admin) | ✅ Funcional | List con paginación/filtros, Create |
-| Módulo Products (User) | ✅ Funcional | Catálogo público de productos habilitados |
-| Módulo Orders (Admin) | ✅ Funcional | List con búsqueda y filtro por estado |
-| Módulo Orders (User) | ✅ Funcional | Crear orden desde carrito |
-| Módulo Cart | ✅ Funcional | Carrito con localStorage, checkout |
-| Módulo Home | ✅ Funcional | Dashboard con contadores |
-| Componentes shared | ✅ 9 componentes | Button, Card, Input, Modal, Pagination, SearchBar, etc. |
-| Hooks custom | ✅ 5 hooks | useAuth, useCart, usePagination, useToggleMap, useDeleteQuantity |
-| Axios + interceptores | ✅ Configurado | Token injection, 401 handling |
-| Layout Dashboard | ✅ Implementado | Sidebar + header + Outlet |
+**Verificacion:**
+- `docker compose up -d` arranca SQL Server
+- `dotnet ef database update` aplica migraciones
+- Backend arranca y Swagger funciona
 
 ---
 
-## Entidades Implementadas vs Planificadas
+### Fase 1 — Bugs Criticos (2-3 horas)
 
-### Implementadas
+**Objetivo:** Resolver problemas de seguridad y funcionalidad rota
 
-| Entidad | Propiedades | Estado |
-|---|---|---|
-| **Customer** | Id (Guid), Name, Email, PhoneNumber? | ✅ Creada con validaciones |
-| **Product** | Id, Sku, InternalCode, Name, Description, CurrentUnitPrice, StockQuantity, IsActive | ✅ Creada con validaciones |
-| **Order** | Id, Date, ShippingAddress?, BillingAddress?, Notes?, TotalAmount (computed), Status (enum), CustomerId FK | ✅ Creada con validaciones |
-| **OrderItem** | Id, Quantity, UnitPrice, Subtotal (computed), OrderId FK, ProductId FK | ✅ Creada con validaciones |
-| **OrderStatus** | Enum: PENDING=1, PROCESSING=2, SHIPPED=3, DELIVERED=4, CANCELLED=5 | ✅ Creado |
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 1.1 | US-17 | `appsettings.json`, `Program.cs` | Mover JWT secret a User Secrets |
+| 1.2 | US-18 | `appsettings.json`, `Program.cs` | Mover credenciales admin a env vars |
+| 1.3 | US-27 | `OrderController.cs`, `OrdersManagementServices.cs` | Validar CustomerId del JWT (BOLA) |
+| 1.4 | US-30 | `docker-compose.yml`, `appsettings.json` | Migrar a Docker SQL Server |
+| 1.5 | US-26 | `Dsw2025TpiContext.cs`, `Products.json` | Corregir bugs DbContext + GUIDs |
+| 1.6 | US-32 | `Dsw2025TpiContext.cs` | Agregar unique index en Sku |
+| 1.7 | US-33 | Migracion | Cambiar cascade a Restrict |
+| 1.8 | US-34 | `AuthenticateController.cs` | Retornar 403 en vez de 500 |
 
-### Pendientes de implementar
-
-| Entidad | Propiedades planificadas | Prioridad |
-|---|---|---|
-| **Category** | Id, Name, Description | Media — Necesaria para agrupar productos |
-| **PaymentMethod** | Id, PaymentType, LastFourDigits, IsDefault, UserId FK | Baja — Funcionalidad extendida |
-
-### Diferencias notables con el plan original
-
-| Aspecto | Plan original | Implementación actual |
-|---|---|---|
-| Entidad de usuario | `User` (custom) | `IdentityUser` (ASP.NET Identity) + `Customer` (espejo) |
-| Roles | Enteros (0=Admin, 1=Client) | Strings ("Admin", "User") via Identity |
-| Categorías | Entidad `Category` con FK en Product | No implementada |
-| PaymentMethod | Entidad separada | No implementada |
-| ShippingAddress | Value Object embebido | Campo `string?` simple en Order |
-| BillingInfo | Value Object embebido | Campo `string?` simple en Order |
-| OrderNumber | Campo único | No existe (se usa `Id` como identificador) |
+**Verificacion:**
+- JWT secret no esta en appsettings.json
+- BOLA corregido (CustomerId del token)
+- SQL Server corre en Docker
+- No hay GUIDs duplicados
 
 ---
 
-## Diagrama de Relaciones (ER) — Implementado
+### Fase 2 — Bugs Frontend + Contratos (2 horas)
 
-```
-Customer 1───────* Order
-                     │
-                     │ 1
-                     │
-OrderItem *─────────*
-   │
-   │ *
-Product (sin FK a Category)
+**Objetivo:** Corregir bugs de frontend y inconsistencias
 
-IdentityUser ────── 1:1 ──── Customer (via Guid)
-```
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 2.1 | US-36 | `createOrder.js` | Unificar contrato {data, error} |
+| 2.2 | US-37 | `listServices.js` | Eliminar fallback fetch |
+| 2.3 | US-38 | `axiosInstance.js` | Usar navigate en vez de window.location |
+| 2.4 | US-39 | `ListProductsUserPage.jsx`, `ListOrdersPage.jsx` | Agregar searchTerm a deps |
+| 2.5 | US-40 | `useDeleteQuantity.js` | Corregir closure stale |
+| 2.6 | US-41 | `register.js`, `AuthProvider.jsx` | Corregir contrato register |
+| 2.7 | US-42 | `AuthProvider.jsx` | Verificar exp en init |
+| 2.8 | US-43 | `AuthProvider.jsx`, `RegisterForm.jsx` | Auto-loguear post registro |
 
-**Notas:**
-- `Customer` se crea como espejo de `IdentityUser` al registrar
-- `Order.TotalAmount` es computed (`=> OrderItems.Sum(...)`)
-- `OrderItem.Subtotal` es computed (`=> Quantity * UnitPrice`)
-- `Order.Date` se setea en `DateTime.Now` en el constructor
+**Verificacion:**
+- Todos los servicios retornan {data, error}
+- useEffect tiene dependencias correctas
+- Token expirado se detecta al cargar
 
 ---
 
-## Seguridad — Estado Actual
+### Fase 3 — Deuda Tecnica Backend (3-4 horas)
 
-### Implementado
+**Objetivo:** Corregir arquitectura y calidad de codigo
 
-| Componente | Estado | Detalle |
-|---|---|---|
-| JWT Bearer Authentication | ✅ | `JwtTokenService` genera tokens con claims `sub`, `jti`, role, `id` |
-| ASP.NET Identity | ✅ | `IdentityUser` + `IdentityRole`, tablas custom en español |
-| Password Hashing | ✅ | PBKDF2 via ASP.NET Identity (no BCrypt) |
-| Roles | ✅ | "Admin" y "User" seeded al startup |
-| Admin por defecto | ✅ | `admin` / `SecurePassword123!` / role Admin |
-| CORS | ✅ | `localhost:5173`, `localhost:5174` + credentials |
-| Autorización por roles | ✅ | `[Authorize(Roles="Admin")]` en endpoints protegidos |
-| Registro de usuarios | ✅ | Crea `IdentityUser` + `Customer` espejo |
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 3.1 | US-25 | `Application.csproj`, `Program.cs` | Eliminar ref a Data, usar DI |
+| 3.2 | US-24 | `IUnitOfWork.cs`, `EfRepository.cs` | Implementar Unit of Work |
+| 3.3 | US-23 | `GlobalExceptionMiddleware.cs` | Crear middleware ProblemDetails |
+| 3.4 | US-29 | `BaseController.cs` | Eliminar codigo muerto |
+| 3.5 | US-28 | `OrderModel.cs`, `ListOrdersPage.jsx` | Corregir typo TotatAmount |
+| 3.6 | US-31 | `OrderItem.cs` | Corregir validacion UnitPrice |
+| 3.7 | US-44 | `EfRepository.cs`, servicios | Paginacion en BD con IQueryable |
+| 3.8 | US-45 | `OrdersManagementServices.cs` | Transaccion en operaciones stock |
+| 3.9 | US-46 | `EfRepository.cs` | Agregar AsNoTracking |
 
-### Pendiente / Deuda de seguridad
-
-| Issue | Prioridad | Detalle |
-|---|---|---|
-| JWT secret en appsettings.json | Crítica | Clave committed a repo, cualquier persona puede forjar tokens |
-| Credenciales admin en plaintext | Crítica | `SecurePassword123!` en appsettings.json |
-| Sin rate limiting | Alta | Login/register vulnerables a fuerza bruta |
-| Token en localStorage | Alta | Vulnerable a XSS |
-| Débil password policy | Media | Solo requiere longitud 8, sin complejidad |
-| Sin HSTS | Media | No hay middleware `UseHsts()` |
-| Sin validación JWT expiry en frontend | Media | jwt-decode no verifica expiración |
+**Verificacion:**
+- Application solo refiere a Domain
+- Unit of Work atomiciza operaciones
+- Global exception handler retorna ProblemDetails
+- No hay codigo muerto
 
 ---
 
-## Arquitectura — Clean Architecture
+### Fase 4 — Calidad Backend (3-4 horas)
 
-### Capas implementadas
+**Objetivo:** Establecer buenas practicas y patrones
 
-```
-Dsw2025Tpi.Api/            → Presentación (Controllers, Program.cs, DI)
-    ↓ referencia a
-Dsw2025Tpi.Application/    → Lógica de negocio (Services, DTOs, Validators, Exceptions)
-    ↓ referencia a
-Dsw2025Tpi.Domain/         → Modelo de dominio (Entities, Interfaces)
-    ↑ referencia a
-Dsw2025Tpi.Data/           → Infraestructura (DbContext, Repositories, Migrations)
-```
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 4.1 | US-47 | `Program.cs` | Password policy fuerte |
+| 4.2 | US-48 | `Program.cs` | Rate limiting en auth |
+| 4.3 | US-49 | `OrdersManagementServices.cs` | Invocar CustomerValidator |
+| 4.4 | US-50 | `RegistrationService.cs` | Extraer de Controller a Service |
+| 4.5 | US-51 | Interfaces + DI | IProductsService, IOrdersService |
+| 4.6 | US-52 | `LoginModel.cs`, `RegisterModel.cs` | Data Annotations |
+| 4.7 | US-53 | Servicios | Centralizar mapeo DTO |
+| 4.8 | US-54 | `Order.cs`, `JwtTokenService.cs` | DateTime.UtcNow |
+| 4.9 | US-55 | `ServiceCollectionExtensions.cs` | Centralizar DI |
+| 4.10 | US-56 | `Program.cs`, `appsettings.json` | CORS configurable |
+| 4.11 | US-57 | `AuthenticateController.cs` | Respuesta JSON registro |
+| 4.12 | US-60 | `OrdersManagementServices.cs` | Agregar ILogger |
+| 4.13 | US-61 | `Order.cs` o DTOs | TotalAmount persistido |
+| 4.14 | US-62 | `Program.cs` | Health check con SQL Server |
 
-### ⚠️ Problema de arquitectura detectado
-
-`Application.csproj` referencia a `Data.csproj`, lo cual crea una dependencia circular en Clean Architecture. La capa Application no debería conocer la capa de Data directamente — debería depender solo de Domain (interfaces).
-
-```
-Flujo correcto:  Api → Application → Domain ← Data
-Flujo actual:    Api → Application → Data → Domain  (Application conoce Data)
-```
+**Verificacion:**
+- Password policy requiere complejidad
+- Rate limiting activo en auth
+- Servicios registrados por interfaz
+- Logging en todos los servicios
 
 ---
 
-## Controllers — Endpoints Implementados
+### Fase 5 — Seguridad Cookies (4-5 horas)
 
-### AuthenticateController (`/api/auth`)
+**Objetivo:** Migrar de localStorage a HttpOnly cookies
 
-| Método | Ruta | Auth | Descripción |
+| Paso | Historia | Archivos | Accion |
 |---|---|---|---|
-| POST | `/api/auth/login` | Anónimo | Login, retorna `{ token }` |
-| POST | `/api/auth/register` | Anónimo | Registro, retorna mensaje de éxito |
+| 5.1 | US-35 | `AuthenticateController.cs` | Set-Cookie en login |
+| 5.2 | US-35 | `JwtCookieMiddleware.cs` | Middleware para leer cookie |
+| 5.3 | US-35 | `Program.cs` | CORS AllowCredentials |
+| 5.4 | US-21 | `AuthProvider.jsx` | Dejar de usar localStorage |
+| 5.5 | US-21 | `axiosInstance.js` | Enviar cookies automaticamente |
+| 5.6 | US-21 | `login.js` | Manejar Set-Cookie response |
+| 5.7 | -- | `LoginModal.jsx` | Actualizar flujo login |
 
-### ProductsController (`/api/products`)
-
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/api/products` | Anónimo | Catálogo público (solo activos), paginado |
-| GET | `/api/products/{id}` | Admin,User | Detalle de producto |
-| POST | `/api/products` | Admin | Crear producto |
-| PUT | `/api/products/{id}` | Admin | Actualizar producto |
-| PATCH | `/api/products/{id}` | Admin | Soft-delete (desactivar) |
-| GET | `/api/products/admin` | Admin | Listado admin (todos los estados), con filtros |
-
-### OrderController (`/api/orders`)
-
-| Método | Ruta | Auth | Descripción |
-|---|---|---|---|
-| GET | `/api/orders` | Admin | Listar todas las órdenes, paginado |
-| POST | `/api/orders` | Admin,User | Crear orden (verifica stock, descuenta) |
-| GET | `/api/orders/{id}` | Admin | Detalle de orden con items |
-| PUT | `/api/orders/{id}` | Admin | Cambiar estado de orden |
+**Verificacion:**
+- Login envia cookie HttpOnly
+- Axios envia cookies automaticamente
+- localStorage no se usa para token
+- CORS permite credentials
 
 ---
 
-## Servicios — Lógica de Negocio
+### Fase 6 — Frontend State Management (3-4 horas)
 
-### ProductsManagementService
+**Objetivo:** Corregir estado global y eliminar anti-patterns
 
-- `GetProductById(Guid)` — Búsqueda por ID
-- `GetAllProducts()` — Todos los activos (sin paginación)
-- `GetProducts(FilterProduct)` — Filtro por status + búsqueda textual + paginación
-- `AddProduct(Request)` — Validación + unicidad SKU
-- `UpdateProduct(Guid, Request)` — Validación + unicidad SKU (excluye self)
-- `PatchProduct(Guid)` — Soft-delete, previene doble desactivación
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 6.1 | US-16 | `CartContext.jsx` | Crear Context para carrito |
+| 6.2 | US-16 | `useCart.js` | Migrar a Context |
+| 6.3 | US-16 | `App.jsx` | Envolver con CartProvider |
+| 6.4 | US-59 | `UserLayout.jsx` | Crear layout compartido |
+| 6.5 | US-59 | Paginas usuario | Usar UserLayout |
+| 6.6 | US-17F | `AuthContext.jsx` | Context para modales |
+| 6.7 | US-17F | `LoginModal.jsx`, `RegisterModal.jsx` | Usar Context en vez de dispatch |
+| 6.8 | US-17F | Paginas usuario | Eliminar window.addEventListener |
 
-### OrdersManagementService
-
-- `GetOrderById(Guid)` — Con eager loading de OrderItems + Product
-- `GetAllOrders(SearchOrder)` — Filtra canceladas, valida CustomerId, parsea status, paginación
-- `AddOrder(Request)` — Validación completa, verifica stock por item, descuenta stock, crea Order + OrderItems
-- `UpdateOrderStatus(Guid, string)` — Transición de estado, restaura stock al cancelar
-
-### JwtTokenService
-
-- Genera JWT con claims: `sub` (username), `jti` (GUID), role, `id` (IdentityUser.Id)
-- Algoritmo: HMAC-SHA256
-- Expiración: 60 min (default, no configurable via appsettings)
+**Verificacion:**
+- Carrito sincronizado entre paginas
+- Badge del header se actualiza
+- No hay window.dispatchEvent
+- Layout duplicado eliminado
 
 ---
 
-## Lo que Falta Implementar
+### Fase 7 — Funcionalidad Backend (4-6 horas)
 
-### Prioridad Crítica (Seguridad)
+**Objetivo:** Nuevas entidades y endpoints
 
-| # | Item | Esfuerzo | Detalle |
+| Paso | Historia | Archivos | Accion |
 |---|---|---|---|
-| 1 | Mover JWT secret a Variables de Entorno | Bajo | Secret en appsettings.json es un riesgo de seguridad |
-| 2 | Mover credenciales admin a Variables de Entorno | Bajo | User Secrets en dev, Key Vault en prod |
-| 3 | Agregar rate limiting | Medio | `Microsoft.AspNetCore.RateLimiting` en login/register |
-| 4 | Configurar expiry JWT configurable | Bajo | Agregar `ExpireInMinutes` a appsettings.json |
-| 5 | Fortalecer password policy | Bajo | Requerir mayúscula, número, carácter especial |
+| 7.1 | US-63 | `Category.cs`, DbContext, migracion | Crear entidad Category |
+| 7.2 | US-63 | `CategoryController.cs`, Service | CRUD categorias |
+| 7.3 | US-64 | `DashboardController.cs` | Endpoint /api/dashboard/stats |
+| 7.4 | US-65 | `OrderController.cs` | Endpoint /api/orders/mine |
+| 7.5 | US-63 | Frontend modulo categories | CRUD categorias admin |
 
-### Prioridad Alta (Seguridad — Cookies)
-
-| # | Item | Esfuerzo | Detalle |
-|---|---|---|---|
-| 6 | Backend: soporte autenticación por cookies | Medio | Set-Cookie en login, leer cookie en endpoints, CORS AllowCredentials |
-| 7 | Frontend: migrar token a HttpOnly cookie | Alto | Dejar de usar localStorage, enviar cookies con Axios |
-| 8 | Seguridad avanzada de cookies | Alto | Secure + SameSite, refresh token en cookie separada, revocación |
-
-### Prioridad Alta (Infraestructura — Base de Datos)
-
-| # | Item | Esfuerzo | Detalle |
-|---|---|---|---|
-| 1 | **Migrar de LocalDB a Docker SQL Server** | Medio | LocalDB tiene limitaciones: no soporta conexiones múltiples, inestable, no disponible en Linux/Mac nativo, no apto para producción. Ver sección dedicada abajo. |
-
-### Prioridad Alta (Arquitectura y Calidad)
-
-| # | Item | Esfuerzo | Detalle |
-|---|---|---|---|
-| 6 | Implementar Unit of Work | Medio | `IUnitOfWork` con `SaveChangesAsync()` centralizado |
-| 7 | Corregir dependencia circular Application→Data | Medio | Application solo debe referenciar Domain |
-| 8 | Agregar global exception handling middleware | Medio | Reemplazar try/catch ad-hoc en controllers |
-| 9 | Eliminar `BaseController.cs` (código muerto) | Bajo | Ningún controller lo usa |
-| 10 | Corregir bugs en DbContext | Bajo | `BillingAddress.HasPrecision(15,2)`, `Order.Date.HasMaxLength(10)` |
-| 11 | Agregar unique index en `Product.Sku` | Bajo | Prevenir race condition en creación |
-| 12 | Corregir GUIDs duplicados en seed data | Bajo | `Products.json` tiene dos productos con mismo GUID |
-| 13 | Corregir typo `TotatAmount` → `TotalAmount` en DTOs | Bajo | Afecta frontend también |
-
-### Prioridad Media (Funcionalidad)
-
-| # | Item | Esfuerzo | Detalle |
-|---|---|---|---|
-| 14 | Crear entidad `Category` | Medio | Para agrupar productos |
-| 15 | Crear endpoint `GET /api/dashboard/stats` | Medio | Dashboard admin con datos reales |
-| 16 | Agregar `GET /api/orders/mine` para clientes | Medio | Clientes ven solo sus órdenes |
-| 17 | Agregar validación de expiración JWT en frontend | Bajo | Verificar `exp` antes de enviar request |
-| 18 | Configurar health check con SQL Server | Bajo | `AddHealthChecks().AddSqlServer()` |
-| 19 | Agregar Swagger security definition (Bearer) | Bajo | Configurar `AddSecurityDefinition` correctamente |
-
-### Prioridad Baja (Mejoras)
-
-| # | Item | Esfuerzo | Detalle |
-|---|---|---|---|
-| 20 | Agregar Serilog (logging estructurado) | Medio | JSON logging para producción |
-| 21 | Agregar API versioning | Medio | `/api/v1/products` |
-| 22 | Crear entidad `PaymentMethod` | Baja | Funcionalidad extendida |
-| 23 | Agregar paginación con límite max | Bajo | Prevenir `PageSize=999999` |
-| 24 | Implementar refresh tokens | Alto | Rotación de tokens sin re-login |
-| 25 | Mover token a HttpOnly cookie | Alto | Protección contra XSS |
+**Verificacion:**
+- Category CRUD funciona
+- Dashboard muestra datos reales
+- Clientes ven solo sus ordenes
 
 ---
 
-## Fase 0 — Migración de Base de Datos: LocalDB → Docker SQL Server
+### Fase 8 — Frontend UX/UI (6-8 horas)
 
-### Contexto
+**Objetivo:** Mejorar experiencia de usuario
 
-Actualmente el backend usa **LocalDB** (`(localdb)\MSSQLLocalDB`) con Windows Authentication. LocalDB tiene limitaciones importantes:
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 8.1 | US-86 | `HomePage.jsx` | Pagina Home con destacados |
+| 8.2 | US-87 | `ProductsPage.jsx` | Pagina Productos con filtros |
+| 8.3 | US-88 | `AboutPage.jsx` | Pagina Sobre Nosotros |
+| 8.4 | US-89 | `Footer.jsx` | Componente Footer |
+| 8.5 | US-90 | `UserHeaderMenu.jsx` | Ocultar carrito sin auth |
+| 8.6 | US-91 | `UserHeaderMenu.jsx` | Header dinamico |
+| 8.7 | US-66 | `Toast.jsx` | Sistema de notificaciones |
+| 8.8 | US-67 | `Skeleton.jsx` | Loaders de carga |
+| 8.9 | US-68 | Multiples archivos | Diseno responsivo |
+| 8.10 | US-92 | `NotFoundPage.jsx` | Pagina 404 |
 
-- **No acepta conexiones TCP remotas** — solo funciona localmente con named pipes
-- **Inestable** — el motor se inicia/detiene automáticamente, a veces falla
-- **No disponible en Linux/Mac** — solo funciona en Windows con SQL Server Express instalado
-- **Sin soporte de autenticación por usuario** — usa Windows Auth (Integrated Security)
-- **No apto para contenedores Docker** — no se puede empaquetar en un Dockerfile
-- **Limitaciones de rendimiento** — 10 GB max, un solo usuario a la vez
+**Verificacion:**
+- Home muestra productos destacados
+- Footer funcional
+- Toasts aparecen en acciones
+- Skeletons en carga
+- Responsivo en mobile
 
-### Plan de migración
+---
 
-#### 1. Crear `docker-compose.yml` en la raíz del backend
+### Fase 9 — Pre-Despliegue (2-3 horas)
 
-```yaml
-version: "3.8"
-services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: ics-sqlserver
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "Dsw2025Tpi_Sa123!"   # Cambiar en producción
-      MSSQL_PID: "Developer"                     # Licencia Developer (gratis)
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver-data:/var/opt/mssql
-    healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Dsw2025Tpi_Sa123!" -Q "SELECT 1" || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 5
+**Objetivo:** Preparar para produccion
 
-volumes:
-  sqlserver-data:
-```
+| Paso | Historia | Archivos | Accion |
+|---|---|---|---|
+| 9.1 | -- | `Dockerfile` (backend) | Crear Dockerfile .NET 8 |
+| 9.2 | -- | `Dockerfile` (frontend) | Crear Dockerfile multi-stage |
+| 9.3 | -- | `render.yaml` | Configuracion Render |
+| 9.4 | -- | `.env.production` | Variables de entorno prod |
+| 9.5 | -- | `appsettings.Production.json` | Configuracion prod |
+| 9.6 | US-93 | `Program.cs` | Serilog configurado |
+| 9.7 | US-94 | `Program.cs` | API versioning |
+| 9.8 | -- | CORS | Configurar dominio Vercel |
 
-#### 2. Actualizar connection string en `appsettings.json`
+**Verificacion:**
+- Docker build exitoso
+- Backend despliega en Render
+- Frontend despliega en Vercel
+- CORS permite dominio Vercel
 
-**Actual (LocalDB):**
-```json
-"ConnectionStrings": {
-  "Dsw2025Tpi": "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Dsw2025Tpi;Integrated Security=True;"
-}
-```
+---
 
-**Nuevo (Docker SQL Server):**
-```json
-"ConnectionStrings": {
-  "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
-}
-```
+### Fase 10 — Despliegue Final
 
-> **Nota:** `AuthenticateContext` y `Dsw2025TpiContext` usan la misma connection string (`Dsw2025Tpi`), así que ambas se afectan automáticamente.
+**Objetivo:** Produccion funcional
 
-#### 3. Eliminar migraciones existentes y recrear
-
-```bash
-cd ICS_TPI2026_backend
-dotnet ef migrations remove --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-# Repetir hasta eliminar todas las migraciones
-dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-```
-
-#### 4. Crear `appsettings.Development.json` (override seguro)
-
-```json
-{
-  "ConnectionStrings": {
-    "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
-  }
-}
-```
-
-#### 5. Actualizar `DB_Config.md`
-
-Sincronizar el documento con la nueva configuración (Docker como default, LocalDB como alternativa).
-
-### Archivos a modificar
-
-| Archivo | Cambio |
+| Paso | Accion |
 |---|---|
-| `docker-compose.yml` (nuevo) | Servicio SQL Server 2022 |
-| `appsettings.json` | Connection string → Docker SQL Server |
-| `appsettings.Development.json` (nuevo) | Override para desarrollo |
-| `DB_Config.md` | Documentar ambas opciones (Docker default, LocalDB fallback) |
-| `README.md` | Actualizar instrucciones de ejecución |
-| Migraciones EF Core | Eliminar y recrear (cambian los providers de SQL) |
-
-### Verificación
-
-1. `docker compose up -d` → SQL Server arranca en puerto 1433
-2. `dotnet ef database update` → Migraciones aplican correctamente
-3. `dotnet run --project Dsw2025Tpi.Api` → Backend conecta a Docker SQL Server
-4. Swagger funciona, CRUD de productos/órdenes opera correctamente
-5. Seed data se carga sin errores
+| 10.1 | Crear branch `release/v1.0` |
+| 10.2 | Deploy backend a Render |
+| 10.3 | Deploy frontend a Vercel |
+| 10.4 | Configurar Monster ASP.NET |
+| 10.5 | Aplicar migraciones en produccion |
+| 10.6 | Verificar health check |
+| 10.7 | Test end-to-end manual |
+| 10.8 | Crear PR a main |
+| 10.9 | Merge y tag `v1.0.0` |
 
 ---
 
-## Guía de Setup Rápido (Cómo levantar el proyecto)
+## Coordinacion con Trello
 
-### Problemas conocidos y cómo resolverlos
-
-Antes de ejecutar, hay **3 problemas de configuración** que deben resolverse:
-
-#### 1. Versión de .NET
-
-Los proyectos están configurados para **.NET 8** (`TargetFramework: net8.0`), pero si solo tenés .NET 10 instalado, no vas a poder ejecutar el backend. Tenés 2 opciones:
-
-| Opción | Acción | Esfuerzo |
-|---|---|---|
-| **A (recomendada)** | Instalar .NET 8 SDK desde https://dotnet.microsoft.com/download/dotnet/8.0 | Bajo |
-| B | Actualizar todos los `.csproj` de `net8.0` a `net10.0` y los paquetes NuGet a versiones 10.x | Bajo pero requiere recrear migraciones |
-
-Si elegís la opción B, hay que actualizar estos archivos:
-- `Dsw2025Tpi.Api/Dsw2025Tpi.Api.csproj` — `TargetFramework` + paquetes NuGet
-- `Dsw2025Tpi.Application/Dsw2025Tpi.Application.csproj` — `TargetFramework`
-- `Dsw2025Tpi.Data/Dsw2025Tpi.Data.csproj` — `TargetFramework` + paquetes NuGet
-- `Dsw2025Tpi.Domain/Dsw2025Tpi.Domain.csproj` — `TargetFramework`
-- Luego borrar migraciones existentes y recrear: `dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api`
-
-#### 2. Base de datos (Docker SQL Server)
-
-Actualmente el proyecto usa **LocalDB** (`(localdb)\MSSQLLocalDB`) que tiene limitaciones importantes. Para migrar a Docker SQL Server:
-
-1. Crear `docker-compose.yml` en `ICS_TPI2026_backend/` con SQL Server 2022 (ver Fase 0 abajo)
-2. Ejecutar `docker compose up -d`
-3. Actualizar el connection string en `Dsw2025Tpi.Api/appsettings.json`:
-   ```json
-   "ConnectionStrings": {
-     "Dsw2025Tpi": "Data Source=localhost,1433;Initial Catalog=Dsw2025Tpi;User Id=sa;Password=Dsw2025Tpi_Sa123!;TrustServerCertificate=True;"
-   }
-   ```
-4. Eliminar migraciones existentes y recrear:
-   ```bash
-   dotnet ef migrations remove --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-   # Repetir hasta que no queden migraciones
-   dotnet ef migrations add InitialCreate --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-   dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-   ```
-
-#### 3. Puertos desalineados (Frontend ↔ Backend)
-
-El frontend (`.env.development`) apunta a `https://localhost:7138` pero el backend arranca con el perfil `http` en `http://localhost:5142`. Hay que alinear:
-
-**Opción A (simple):** Cambiar `.env.development` en el frontend:
-```
-VITE_BACKEND_URL=http://localhost:5142/
-```
-
-**Opción B:** Instalar certificado HTTPS de dev y arrancar con el perfil HTTPS:
-```bash
-dotnet dev-certs https --trust
-dotnet run --project Dsw2025Tpi.Api --launch-profile https
-```
-
-### Pasos para levantar el proyecto
-
-#### Prerrequisitos
-
-- .NET 8 SDK (o .NET 10 con upgrade)
-- Docker Desktop
-- Node.js 18+
-
-#### Backend
-
-```bash
-cd ICS_TPI2026_backend
-docker compose up -d          # Levantar SQL Server
-# (Opcional) Aplicar migraciones si es la primera vez:
-# dotnet ef database update --project Dsw2025Tpi.Data --startup-project Dsw2025Tpi.Api
-dotnet run --project Dsw2025Tpi.Api
-```
-
-El backend arranca en `http://localhost:5142` (perfil http) o `https://localhost:7138` (perfil https). Swagger en `/swagger`.
-
-#### Frontend
-
-```bash
-cd ICS_TPI2026_frontend
-# Asegurarse de que .env.development tenga la URL correcta del backend
-npm install
-npm run dev
-```
-
-El frontend arranca en `http://localhost:5173`. Proxy de Vite redirige `/api` al backend.
-
----
-
-## Backlog — Deuda Técnica y Mejoras (Historias de Usuario)
-
-### Épica 1: UX/UI del Frontend
-
-| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
-|---|---|---|---|---|
-| **US-01** | Como visitante, quiero ver una **página Home** con banner de bienvenida, productos destacados y un CTA para registrarme, para que la plataforma no sea solo un listado de productos. | Alta | Media | Pendiente |
-| **US-02** | Como visitante, quiero ver una **página "Productos"** dedicada con filtros, búsqueda y categorías, para encontrar lo que busco fácilmente. | Alta | Media | Pendiente |
-| **US-03** | Como visitante, quiero ver una **página "Sobre Nosotros"** con información de la empresa, equipo y contacto, para generar confianza. | Media | Baja | Pendiente |
-| **US-04** | Como visitante, quiero ver un **footer** con links útiles (contacto, redes sociales, políticas, FAQ), para navegar la plataforma. | Media | Baja | Pendiente |
-| **US-05** | Como usuario no logueado, **no quiero ver el botón del carrito** en el header, para que la UI sea coherente (solo usuarios logueados pueden comprar). | Alta | Baja | Pendiente |
-| **US-06** | Como usuario, quiero un **header que cambie según mi estado** (logueado/no logueado): si no estoy logueado mostrar "Login / Register", si estoy logueado mostrar "Mi cuenta / Carrito / Logout". | Alta | Media | Pendiente |
-| **US-07** | Como usuario, quiero ver **toast notifications** (éxito/error) al realizar acciones (agregar al carrito, crear orden, login), para saber si la operación fue exitosa. | Media | Baja | Pendiente |
-| **US-08** | Como usuario, quiero ver **skeletons/loaders** mientras se cargan los productos, para que la experiencia sea fluida. | Media | Baja | Pendiente |
-| **US-09** | Como usuario, quiero un **diseño responsivo completo** (mobile-first) en todas las páginas, no solo en el dashboard admin. | Alta | Media | Pendiente |
-| **US-10** | Como visitante, quiero ver una **página 404** personalizada cuando navegue a una ruta inexistente. | Baja | Baja | Pendiente |
-
-### Épica 2: Funcionalidad Backend
-
-| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
-|---|---|---|---|---|
-| **US-11** | Como admin, quiero un **dashboard con datos reales** (total de productos, órdenes, clientes, ingresos), para tomar decisiones informadas. | Alta | Media | Pendiente |
-| **US-12** | Como cliente, quiero ver **solo mis órdenes** (`GET /api/orders/mine`), para no depender del admin. | Alta | Media | Pendiente |
-| **US-13** | Como admin, quiero poder **gestionar categorías** (CRUD), para agrupar y filtrar productos. | Media | Media | Pendiente |
-| **US-14** | Como admin, quiero poder **gestionar clientes** (CRUD), para administrar la base de usuarios. | Media | Media | Pendiente |
-| **US-15** | Como admin, quiero **editar órdenes** (cambiar dirección, notas), para corregir errores. | Media | Baja | Pendiente |
-| **US-16** | Como cliente, quiero **recuperar contraseña** por email, para no quedar bloqueado. | Alta | Media | Pendiente |
-
-### Épica 3: Seguridad
-
-| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
-|---|---|---|---|---|
-| **US-17** | Como admin, quiero que el **JWT secret no esté en el código fuente**, para que la plataforma sea segura en producción. | Crítica | Baja | Pendiente |
-| **US-18** | Como admin, quiero que las **credenciales admin estén en variables de entorno**, para que no se expongan en el repo. | Crítica | Baja | Pendiente |
-| **US-19** | Como admin, quiero **rate limiting en login/register**, para prevenir ataques de fuerza bruta. | Alta | Media | Pendiente |
-| **US-20** | Como admin, quiero una **password policy más fuerte** (mayúsculas, números, caracteres especiales), para mejorar la seguridad. | Alta | Baja | Pendiente |
-| **US-21** | Como admin, quiero que el token se almacene en **HttpOnly cookie** en vez de localStorage, para prevenir ataques XSS. Requiere cambios en frontend (leer/escribir cookies) y backend (enviar cookie en login, leer de cookie en endpoints). | Alta | Alta | Pendiente |
-| **US-22** | Como admin, quiero **refresh tokens**, para que los usuarios no tengan que re-loguearse cada 60 min. | Media | Alta | Pendiente |
-| **US-35** | Como admin, quiero que el **backend soporte autenticación por cookies** (enviar Set-Cookie en login, leer cookie en endpoints protegidos, CORS con AllowCredentials), para que la migración de localStorage a cookies funcione. | Alta | Media | Pendiente |
-| **US-36** | Como admin, quiero **medidas de seguridad avanzadas en cookies** (HttpOnly + Secure + SameSite, refresh token en cookie separada, revocación de tokens), para que las cookies no den falsa sensación de seguridad. | Media | Alta | Pendiente |
-
-### Épica 4: Calidad de Código
-
-| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
-|---|---|---|---|---|
-| **US-23** | Como developer, quiero un **global exception handling middleware**, para que los errores 500 no se filen al frontend. | Alta | Media | Pendiente |
-| **US-24** | Como developer, quiero un **Unit of Work** que atomicice las operaciones multi-tabla (ej: crear orden + descontar stock), para evitar inconsistencias. | Alta | Media | Pendiente |
-| **US-25** | Como developer, quiero corregir la **dependencia circular** Application→Data, para que la arquitectura Clean Architecture sea correcta. | Media | Media | Pendiente |
-| **US-26** | Como developer, quiero **corregir los bugs** en el DbContext (BillingAddress.HasPrecision, Order.Date.HasMaxLength) y los GUIDs duplicados en seed data. | Alta | Baja | Pendiente |
-| **US-27** | Como developer, quiero **corregir el typo** `TotatAmount` → `TotalAmount` en DTOs y frontend. | Media | Baja | Pendiente |
-| **US-28** | Como developer, quiero **eliminar BaseController.cs** (código muerto) y los imports no usados. | Baja | Baja | Pendiente |
-| **US-29** | Como developer, quiero **TypeScript en el frontend**, para tipado estático y mejor mantenibilidad. | Media | Muy Alta | Pendiente |
-
-### Épica 5: Infraestructura
-
-| ID | Historia de Usuario | Prioridad | Esfuerzo | Estado |
-|---|---|---|---|---|
-| **US-30** | Como admin, quiero **migrar de LocalDB a Docker SQL Server**, para tener un entorno estable y portable. | Alta | Media | Pendiente |
-| **US-31** | Como admin, quiero un **health check que verifique SQL Server**, para detectar problemas de conectividad. | Media | Baja | Pendiente |
-| **US-32** | Como admin, quiero **Serilog** (logging estructurado), para poder diagnosticar problemas en producción. | Media | Media | Pendiente |
-| **US-33** | Como admin, quiero **API versioning** (`/api/v1/products`), para poder evolucionar la API sin romper clientes existentes. | Baja | Media | Pendiente |
-| **US-34** | Como admin, quiero un **Dockerfile** para el backend y el frontend, para desplegar en cualquier entorno. | Media | Media | Pendiente |
-
----
-
-## Orden de Ejecución Recomendado
-
-### Fase 0 — Setup y Base de datos (30 min)
-1. Resolver versión de .NET (instalar .NET 8 o upgrade a .NET 10)
-2. Crear `docker-compose.yml` con SQL Server 2022
-3. Actualizar connection string en `appsettings.json`
-4. Eliminar y recrear migraciones EF Core
-5. Alinear puertos (`.env.development` ↔ backend)
-6. Verificar que el backend arranca y la API responde
-
-### Fase 1 — Seguridad inmediata (1-2 horas)
-7. Mover JWT secret y admin credentials a User Secrets / Variables de Entorno
-8. Configurar `ExpireInMinutes` en appsettings.json
-9. Fortalecer password policy
-10. Agregar unique index en `Product.Sku`
-
-### Fase 2 — Calidad de código (2-3 horas)
-11. Corregir bugs en DbContext (`BillingAddress`, `Order.Date`)
-12. Corregir GUIDs duplicados en seed data
-13. Corregir typo `TotatAmount`
-14. Eliminar `BaseController.cs`
-15. Agregar global exception handling middleware
-
-### Fase 3 — Arquitectura (3-4 horas)
-16. Implementar Unit of Work
-17. Corregir dependencia circular Application→Data
-18. Agregar rate limiting
-
-### Fase 4 — Seguridad cookies (3-4 horas)
-19. Backend: configurar Set-Cookie en login endpoint
-20. Backend: crear middleware para leer JWT de cookie
-21. Backend: actualizar CORS para AllowCredentials
-22. Frontend: migrar de localStorage a HttpOnly cookies
-23. Frontend: actualizar Axios para enviar cookies
-24. Implementar refresh token en cookie separada
-25. Agregar medidas de seguridad (Secure, SameSite)
-
-### Fase 5 — Funcionalidad Backend (4-6 horas)
-26. Crear entidad Category
-27. Dashboard con datos reales
-28. Endpoint `orders/mine` para clientes
-29. Health check con SQL Server
-
-### Fase 6 — Frontend UX/UI (6-8 horas)
-30. Crear página Home con productos destacados
-31. Crear página "Productos" dedicada
-32. Crear página "Sobre Nosotros"
-33. Crear componente Footer
-34. Ocultar botón carrito si no hay usuario logueado
-35. Header dinámico según estado de autenticación
-36. Toast notifications y skeleton loaders
-37. Diseño responsivo completo (mobile-first)
-38. Página 404 personalizada
-
----
-
-## Coordinación con Tablero Trello (Scrum Manual)
-
-### Estructura del Tablero
-
-El tablero Trello se organiza con las siguientes listas:
+### Tablero: "TPI Ingenieria y Calidad de Software"
 
 ```
-| Backlog | Sprint 1 | En Progreso | Revisión | Hecho |
+| Backlog | Sprint 1 | En Progreso | Revision | Hecho |
 |---------|----------|-------------|----------|-------|
 ```
 
-### Épicas en el Tablero
+### Etiquetas
 
-Cada épica se representa con una **etiqueta de color** en Trello:
+| Etiqueta | Color | Epica |
+|---|---|---|
+| Seguridad | Rojo | Epica 3 |
+| Arquitectura | Naranja | Epica 4 |
+| Backend | Azul | Epica 2 |
+| Frontend | Verde | Epica 1 |
+| Infraestructura | Morado | Epica 5 |
+| Bug | Amarillo | Bugs |
 
-| Etiqueta | Épica | Color sugerido |
-|----------|-------|----------------|
-| Seguridad | Épica 3 | Rojo |
-| Arquitectura | Épica 4 | Naranja |
-| Backend | Épica 2 | Azul |
-| Frontend | Épica 1 | Verde |
-| Infraestructura | Épica 5 | Morado |
+### Sprint 1 (Sugerencia)
 
-### Historias de Usuario → Tarjetas Trello
+| Historia | Esfuerzo |
+|---|---|
+| US-17, US-18 (JWT/Creds secret) | 1h |
+| US-27 (BOLA) | 0.5h |
+| US-26 (Bugs DbContext) | 0.5h |
+| US-32 (Unique Index) | 0.25h |
+| US-33 (FK Cascade) | 0.25h |
+| US-34 (Error 500) | 0.25h |
+| US-28 (Typo) | 0.25h |
+| US-29 (Codigo muerto) | 0.25h |
+| US-30 (Docker SQL) | 1h |
+| **Total** | **~4.5h** |
 
-Cada historia de usuario (US-XX) del backlog se convierte en una tarjeta en Trello con:
+### Sprint 2 (Sugerencia)
 
-**Formato de tarjeta:**
-```
-[Título de la historia]
+| Historia | Esfuerzo |
+|---|---|
+| US-25 (Dependencia circular) | 1.5h |
+| US-24 (Unit of Work) | 2h |
+| US-23 (Exception middleware) | 1.5h |
+| US-44 (Paginacion BD) | 1.5h |
+| US-45 (Transaccion stock) | 1h |
+| US-46 (AsNoTracking) | 0.5h |
+| **Total** | **~8h** |
 
-Descripción:
-- Criterios de aceptación
-- Archivos a modificar
-- Dependencias con otras historias
+### Sprint 3 (Sugerencia)
 
-Checklist:
-- [ ] Paso 1
-- [ ] Paso 2
-- [ ] ...
-```
+| Historia | Esfuerzo |
+|---|---|
+| US-35 (Backend cookies) | 2h |
+| US-21 (Frontend cookies) | 3h |
+| US-47 a US-62 (Calidad backend) | 4h |
+| **Total** | **~9h** |
 
-### Historias de Usuario para el Tablero
+### Sprint 4 (Sugerencia)
 
-#### Épica 3: Seguridad (prioridad para Sprint 1)
-
-| Tarjeta Trello | US | Descripción |
-|----------------|-----|-------------|
-| Mover JWT secret a env vars | US-17 | User Secrets en dev, variables de entorno en prod |
-| Mover credenciales admin a env vars | US-18 | User Secrets en dev, variables de entorno en prod |
-| Rate limiting en auth | US-19 | Microsoft.AspNetCore.RateLimiting |
-| Password policy fuerte | US-20 | RequireDigit, RequireUppercase, etc. |
-| Backend: soporte cookies | US-25 | Set-Cookie en login, middleware de lectura, CORS |
-| Frontend: migrar a cookies | US-21 | LocalStorage → HttpOnly cookies |
-| Seguridad avanzada cookies | US-26 | Secure, SameSite, refresh token, revocación |
-
-#### Épica 4: Calidad de Código
-
-| Tarjeta Trello | US | Descripción |
-|----------------|-----|-------------|
-| Global exception middleware | US-23 | ProblemDetails consistente |
-| Unit of Work | US-24 | Atomicidad en operaciones multi-tabla |
-| Dependencia circular | US-25 | Application solo refiere a Domain |
-| Bugs DbContext | US-26 | BillingAddress, Order.Date, GUIDs duplicados |
-| Typo TotatAmount | US-27 | Renombrar en DTOs y frontend |
-| Eliminar código muerto | US-28 | BaseController.cs |
-
-### Flujo de Trabajo en Trello
-
-1. **Backlog:** Todas las historias están aquí inicialmente
-2. **Sprint 1:** Se mueven las historias priorizadas para el sprint actual
-3. **En Progreso:** Cuando alguien empieza a trabajar en una historia
-4. **Revisión:** Cuando el código está listo para review
-5. **Hecho:** Cuando está mergeado y verificado
-
-### Reglas de Coordinación
-
-- **Una historia a la vez** por persona (evitar WIP limit)
-- **Dependencias claras:** Si una historia depende de otra, marcarla en la tarjeta
-- **Definition of Done:**
-  - [ ] Código implementado
-  - [ ] Tests pasan (si existen)
-  - [ ] No rompe funcionalidad existente
-  - [ ] Documentación actualizada (si aplica)
-  - [ ] Tarjeta movida a "Hecho"
-
-### Sugerencia de Sprint 1 (2 semanas)
-
-| Prioridad | Historias | Esfuerzo estimado |
-|-----------|-----------|-------------------|
-| Crítica | US-17, US-18 | 1 hora |
-| Alta | US-19, US-20, US-25 | 4 horas |
-| Media | US-26, US-27, US-28 | 3 horas |
-| **Total Sprint 1** | | **~8 horas** |
-
-### Sugerencia de Sprint 2 (2 semanas)
-
-| Prioridad | Historias | Esfuerzo estimado |
-|-----------|-----------|-------------------|
-| Alta | US-21 (cookies frontend), US-25 (cookies backend) | 6 horas |
-| Media | US-26 (seguridad cookies), US-23 (exception middleware) | 5 horas |
-| **Total Sprint 2** | | **~11 horas** |
+| Historia | Esfuerzo |
+|---|---|
+| US-16 (Cart Context) | 1.5h |
+| US-59 (AppShell) | 2h |
+| US-17F (Dispatch -> Context) | 1h |
+| US-36 a US-43 (Bugs frontend) | 2h |
+| **Total** | **~6.5h** |
 
 ---
 
-## Resumen de Archivos del Proyecto
+## Patrones de Diseno a Aplicar
 
-```
-ICS/
-├── docs/
-│   ├── PLAN.md                               ← Este archivo
-│   ├── TP1_Resuelto.md                       ← 9 deudas técnicas destacadas
-│   ├── TP1_Hallazgos_Adicionales.md          ← Bugs + deuda técnica (20 hallazgos)
-│   ├── DB_Config.md                          ← Configuración de base de datos
-│   └── ICS2026_TP1.pdf                       ← Enunciado del TP1
-│
-├── ICS_TPI2026_backend/
-│   ├── Dsw2025Tpi.sln
-│   ├── Dsw2025Tpi.Api/
-│   │   ├── Program.cs                    ← Configuración, DI, startup
-│   │   ├── appsettings.json              ← JWT key, connection string, admin creds
-│   │   ├── Controllers/
-│   │   │   ├── BaseController.cs         ← ⚠️ Código muerto
-│   │   │   ├── AuthenticateController.cs
-│   │   │   ├── ProductsController.cs
-│   │   │   └── OrderController.cs
-│   │   └── DependencyInjection/
-│   │       └── ServiceCollectionExtensions.cs
-│   ├── Dsw2025Tpi.Application/
-│   │   ├── Dtos/                         ← 6 archivos DTO
-│   │   ├── Services/
-│   │   │   ├── JwtTokenService.cs
-│   │   │   ├── ProducstManagementServices.cs  ← ⚠️ Typo en nombre
-│   │   │   └── OrdersManagementServices.cs
-│   │   ├── Validation/                   ← 4 validadores estáticos
-│   │   └── Exceptions/                   ← 3 excepciones custom
-│   ├── Dsw2025Tpi.Domain/
-│   │   ├── Entities/
-│   │   │   ├── EntityBase.cs
-│   │   │   ├── Customer.cs
-│   │   │   ├── Product.cs
-│   │   │   ├── Order.cs
-│   │   │   ├── OrderItem.cs
-│   │   │   └── OrderStatus.cs
-│   │   └── Interfaces/
-│   │       └── IRepository.cs
-│   └── Dsw2025Tpi.Data/
-│       ├── Dsw2025TpiContext.cs
-│       ├── AuthenticateContext.cs
-│       ├── Repositories/
-│       │   └── EfRepository.cs
-│       ├── Helpers/
-│       │   └── DbContextExtensions.cs
-│       ├── Sources/                      ← Seed data JSON
-│       └── Migrations/
-│
-├── ICS_TPI2026_frontend/
-│   └── src/
-│       ├── main.jsx
-│       ├── App.jsx
-│       └── modules/
-│           ├── auth/                     ← Login, Register, ProtectedRoute
-│           ├── products/                 ← CRUD admin + catálogo público
-│           ├── orders/                   ← List admin + create
-│           ├── cart/                     ← Carrito + checkout
-│           ├── home/                     ← Dashboard admin
-│           ├── shared/                   ← 9 componentes + hooks + API
-│           └── templates/                ← Dashboard layout
-│
-└── README.md
-```
+| Patron | Donde Aplicar | Beneficio |
+|---|---|---|
+| **Repository** | `IRepository<T>` + repositorios especificos | Abstraccion de persistencia |
+| **Unit of Work** | `IUnitOfWork` con `SaveChangesAsync` centralizado | Atomicidad |
+| **Strategy** | Filtros de busqueda (Producto, Orden) | Variabilidad en query building |
+| **Dependency Injection** | Todos los servicios via interfaces | Desacoplamiento, testability |
+| **Middleware** | `GlobalExceptionMiddleware` | Cross-cutting concerns |
+| **Context (React)** | `AuthContext`, `CartContext`, `ModalContext` | Estado global |
+| **Factory** | Creacion de DTOs de respuesta | Centralizacion de mapeo |
+| **Template Method** | Servicios base con logica comun | Reutilizacion |
+
+---
+
+## Principios de Diseno
+
+| Principio | Aplicacion |
+|---|---|
+| **SOLID** | DIP: servicios por interfaces. SRP: un servicio una responsabilidad |
+| **DRY** | Mapeo DTO centralizado, componentes reutilizables |
+| **KISS** | Validaciones simples, servicios claros |
+| **YAGNI** | No implementar refresh tokens hasta que sea necesario |
+| **Separation of Concerns** | Clean Architecture estricta |
+| **Composition over Inheritance** | React: hooks y contextos componibles |
+
+---
+
+## Resumen de Esfuerzo
+
+| Fase | Horas Estimadas |
+|---|---|
+| Fase 0 — Setup | 0.5h |
+| Fase 1 — Bugs Criticos | 2.5h |
+| Fase 2 — Bugs Frontend | 2h |
+| Fase 3 — Deuda Tecnica Backend | 3.5h |
+| Fase 4 — Calidad Backend | 3.5h |
+| Fase 5 — Seguridad Cookies | 4.5h |
+| Fase 6 — State Management | 3.5h |
+| Fase 7 — Funcionalidad | 5h |
+| Fase 8 — UX/UI | 7h |
+| Fase 9 — Pre-Despliegue | 2.5h |
+| Fase 10 — Despliegue | 1h |
+| **Total** | **~35.5h** |

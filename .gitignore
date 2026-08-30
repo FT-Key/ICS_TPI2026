@@ -1,8 +1,39 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 bin/
 obj/
+
+# Logs
 *.log
+
+# IDE
 .vs/
 .idea/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Playwright MCP
+.playwright-mcp/
+
+# OpenCode agents/skills (local config, not shared)
+.opencode/
+agents.md
+skills/
+
+# Environment / secrets
+.env
+.env.local
+.env.production
+appsettings.Development.json
+appsettings.Production.json
+
+# User Secrets
+**/Properties/serviceDependencies.json
+
+# Docker volumes
+sqlserver-data/
