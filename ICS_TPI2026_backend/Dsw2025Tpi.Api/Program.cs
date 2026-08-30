@@ -2,6 +2,7 @@ using Dsw2025Tpi.Api.DependencyInjection;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Data;
 using Dsw2025Tpi.Data.Helpers;
+using Dsw2025Tpi.Data.Seed;
 using Dsw2025Tpi.Domain.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -62,7 +63,7 @@ public class Program
         {
             options.AddPolicy("AllowFrontend", policy =>
             {
-                policy.WithOrigins("http://localhost:5173", "http://localhost:5174") // Agregamos ambos puertos porque no logré otra solucion :/
+                policy.WithOrigins("http://localhost:5173", "http://localhost:5174") // Agregamos ambos puertos porque no logrï¿½ otra solucion :/
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
@@ -120,7 +121,24 @@ public class Program
             dbContext.Database.Migrate();
             var authContext = scope.ServiceProvider.GetRequiredService<AuthenticateContext>();
             authContext.Database.Migrate();
-            dbContext.Seedwork<Product>("Sources/products.json");
+            // Buscar path: config > env var
+            var externalSeedPath = builder.Configuration["SeedData:ExternalJsonPath"]
+                                   ?? Environment.GetEnvironmentVariable("SEED_JSON_PATH");
+            var useSecureSeed = !string.IsNullOrEmpty(externalSeedPath)
+                                && Environment.GetEnvironmentVariable("SEED_MODE") == "development";
+
+            if (useSecureSeed)
+            {
+                // Seed externo seguro reemplaza el Seedwork<Product> embebido
+                var secureSeedService = scope.ServiceProvider.GetRequiredService<SecureSeedService>();
+                secureSeedService.SeedFromJson(externalSeedPath!);
+            }
+            else
+            {
+                // Seed embebido tradicional (Sources/*.json)
+                dbContext.Seedwork<Product>("Sources/products.json");
+            }
+
             dbContext.Seedwork<Customer>("Sources/customers.json");
             dbContext.Seedwork<Order>("Sources/orders.json");
            
