@@ -60,7 +60,7 @@ Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos de
 |---|---|---|---|---|
 | **US-26** | Corregir bugs en DbContext (BillingAddress, Order.Date, GUIDs) | AT-10,11,13 | BE | Bajo |
 | **US-28** | Corregir typo TotatAmount -> TotalAmount en DTOs y frontend | AT-14 | BE+FE | Bajo |
-| **US-29** | Eliminar BaseController.cs y imports no usados | AT-08,44 | BE | Bajo |
+| **US-29** | Seed Data Seguro con JSON Externo (GUIDs duplicados + Seed seguro) | AT-13 | BE | Medio |
 | **US-31** | Corregir validacion inconsistente UnitPrice | AT-42 | BE | Bajo |
 | **US-32** | Agregar unique index en Product.Sku | AT-12 | BE | Bajo |
 | **US-33** | Corregir FK cascade Customer->Orders (Restrict) | AT-48 | BE | Bajo |
@@ -215,7 +215,7 @@ Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos de
 | 3.1 | US-25 | `Application.csproj`, `Program.cs` | Eliminar ref a Data, usar DI |
 | 3.2 | US-24 | `IUnitOfWork.cs`, `EfRepository.cs` | Implementar Unit of Work |
 | 3.3 | US-23 | `GlobalExceptionMiddleware.cs` | Crear middleware ProblemDetails |
-| 3.4 | US-29 | `BaseController.cs` | Eliminar codigo muerto |
+| 3.4 | US-29 | `Dsw2025Tpi.Data/Sources/Products.json` | Seed Data Seguro con JSON Externo |
 | 3.5 | US-28 | `OrderModel.cs`, `ListOrdersPage.jsx` | Corregir typo TotatAmount |
 | 3.6 | US-31 | `OrderItem.cs` | Corregir validacion UnitPrice |
 | 3.7 | US-44 | `EfRepository.cs`, servicios | Paginacion en BD con IQueryable |
@@ -421,7 +421,7 @@ Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos de
 | US-33 (FK Cascade) | 0.25h |
 | US-34 (Error 500) | 0.25h |
 | US-28 (Typo) | 0.25h |
-| US-29 (Codigo muerto) | 0.25h |
+| US-29 (Seed Seguro) | 1h |
 | US-30 (Docker SQL) | 1h |
 | **Total** | **~4.5h** |
 

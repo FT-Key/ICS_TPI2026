@@ -42,18 +42,68 @@ El `OrderItemValidator` existe pero nunca se invoca desde `OrderValidator.Valida
 
 ---
 
-##### BUG AT-13 — GUIDs duplicados en seed data (MEDIO)
+##### BUG AT-13 — GUIDs duplicados en seed data + Seed Seguro (MEDIO)
 
 **Ubicación:** `Dsw2025Tpi.Data/Sources/Products.json` líneas 2 y 21
 
-**Tipo:** Bug (Medium — Duplicate Seed Data)
+**Tipo:** Bug (Medium — Duplicate Seed Data) + Mejora de Seguridad
 
 **Descripción:**
-Dos productos en `Products.json` tienen el mismo GUID: `b9ed5544-42dc-439c-b4d7-15e720089caa`. Cuando `AddRange` recibe dos entidades con el mismo `Id`, EF Core lanza `InvalidOperationException`.
+1. Dos productos en `Products.json` tienen el mismo GUID: `b9ed5544-42dc-439c-b4d7-15e720089caa`
+2. El seed data está expuesto en el repositorio, permitiendo que cualquier persona pueda seedear datos no autorizados
 
-**Consecuencia:** La aplicación crashea al iniciar si la tabla Products está vacía.
+**Consecuencia:**
+- EF Core lanza `InvalidOperationException` al iniciar
+- Cualquiera puede modificar el seed data y agregar usuarios admin
 
-**Recomendación:** Asignar GUIDs únicos a cada producto en el seed data.
+**Solución propuesta:**
+1. Corregir GUIDs duplicados (asignar únicos)
+2. Crear mecanismo de seed seguro con JSON externo
+
+**Nueva arquitectura de Seed:**
+- El seeder recibe un JSON externo (no está en el proyecto)
+- El seeder define el formato del JSON esperado
+- El seeder valida los datos antes de insertar
+- Solo ejecuta si SEED_MODE=development
+- Genera log de inserciones
+
+**Criterios de aceptación:**
+1. Cada producto tiene GUID único
+2. El seeder define esquema JSON esperado
+3. Valida estructura del JSON
+4. Valida cada entidad (productos, usuarios)
+5. Solo ejecuta si SEED_MODE=development
+6. Genera log de inserciones
+7. El JSON no queda en git
+
+**Formato JSON esperado:**
+```json
+{
+  "version": "1.0",
+  "seedType": "development",
+  "products": [
+    {
+      "sku": "PRD-001",
+      "name": "Cable USB",
+      "currentUnitPrice": 15.50,
+      "stockQuantity": 100
+    }
+  ],
+  "users": [
+    {
+      "email": "admin@example.com",
+      "password": "hashed_password_here",
+      "role": "Admin"
+    }
+  ]
+}
+```
+
+**Seguridad:**
+- Variable de entorno SEED_MODE=development obligatoria
+- El JSON se pasa por ruta externa (no en git)
+- Validación de cada dato antes de insertar
+- Log de todas las inserciones
 
 ---
 
