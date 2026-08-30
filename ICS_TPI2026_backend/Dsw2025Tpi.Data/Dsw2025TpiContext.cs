@@ -66,6 +66,7 @@ public class Dsw2025TpiContext : DbContext
             eb.Property(p => p.Sku)
             .HasMaxLength(20)
             .IsRequired();
+            eb.HasIndex(p => p.Sku).IsUnique();
             eb.Property(p => p.Name)
             .HasMaxLength(60)
             .IsRequired();
