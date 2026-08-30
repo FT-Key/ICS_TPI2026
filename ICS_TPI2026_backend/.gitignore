@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Seed data files (except examples)
+seed-data.json
+**/seed-data*.json
+!**/seed-data.example.json

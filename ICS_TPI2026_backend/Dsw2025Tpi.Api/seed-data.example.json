@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "seedType": "development",
+  "products": [
+    {
+      "sku": "PRD-001",
+      "name": "Cable USB-C a Lightning",
+      "description": "Cable de carga y datos de alta velocidad",
+      "internalCode": "CBL-001",
+      "currentUnitPrice": 15.50,
+      "stockQuantity": 100
+    },
+    {
+      "sku": "PRD-002",
+      "name": "Auriculares Bluetooth",
+      "description": "Auriculares inalámbricos con cancelación de ruido",
+      "internalCode": "AUD-001",
+      "currentUnitPrice": 89.99,
+      "stockQuantity": 50
+    },
+    {
+      "sku": "PRD-003",
+      "name": "Funda Protectora",
+      "description": "Funda de silicona para smartphone",
+      "internalCode": "FND-001",
+      "currentUnitPrice": 12.00,
+      "stockQuantity": 200
+    }
+  ],
+  "users": [
+    {
+      "email": "admin@example.com",
+      "name": "Administrador",
+      "password": "CHANGE_ME_BEFORE_USE",
+      "role": "Admin",
+      "phoneNumber": "+541234567890"
+    },
+    {
+      "email": "user@example.com",
+      "name": "Usuario de Prueba",
+      "password": "CHANGE_ME_BEFORE_USE",
+      "role": "User",
+      "phoneNumber": "+540987654321"
+    }
+  ]
+}

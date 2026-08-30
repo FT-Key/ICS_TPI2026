@@ -1,5 +1,6 @@
 ﻿using Dsw2025Tpi.Domain.Interfaces;
 using Dsw2025Tpi.Data.Repositories;
+using Dsw2025Tpi.Data.Seed;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Data;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRepository, EfRepository>();
         services.AddScoped<ProductsManagementService>();
         services.AddScoped<OrdersManagementService>();
+        services.AddScoped<SecureSeedService>();
 
         services.AddDbContext<Dsw2025TpiContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("Dsw2025Tpi")));
