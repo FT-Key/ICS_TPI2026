@@ -35,7 +35,7 @@ function Dashboard() {
         h-screen       /* Cambié h-full por h-screen para asegurar altura completa */
         bg-gray-100    /* Fondo gris para que se note la separación */
         p-2 sm:p-4     /* <--- AQUÍ ESTÁ EL CAMBIO: Relleno para despegar del borde */
-        
+
         grid
         grid-cols-1
         grid-rows-[auto_1fr]
@@ -70,7 +70,7 @@ function Dashboard() {
           onClick={() => setOpenMenu(!openMenu)}
         >{ openMenu ? <span>&#215;</span> : <span>&#9776;</span>}</button>
       </header>
-      
+
       <aside
         className={`
           absolute
@@ -120,7 +120,7 @@ function Dashboard() {
         </nav>
         {renderLogoutButton(true)}
       </aside>
-      
+
       <main
         className="
           p-5

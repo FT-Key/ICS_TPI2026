@@ -15,17 +15,18 @@ function LoginForm({ onSuccess }) {
   } = useForm({ defaultValues: { username: '', password: '' } });
 
   const navigate = useNavigate();
-  
+
   const { signin } = useAuth();
 
   const onValid = async (formData) => {
     setGlobalError('');
-    
+
     try {
       const { error } = await signin(formData.username, formData.password);
 
       if (error) {
         setGlobalError(error.message || 'Ocurrió un error inesperado');
+
         return;
       }
 
@@ -33,10 +34,10 @@ function LoginForm({ onSuccess }) {
         onSuccess();
       } else {
         // Navegación al Dashboard
-        navigate('/admin'); 
+        navigate('/admin');
       }
 
-    } catch (err) {
+    } catch {
       // Catch de seguridad por si explota algo fuera del servicio
       setGlobalError('Error crítico en la aplicación.');
     }
@@ -81,7 +82,6 @@ function LoginForm({ onSuccess }) {
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Ingresando...' : 'Iniciar Sesión'}
         </Button>
-
 
         {!onSuccess && (
           <Button

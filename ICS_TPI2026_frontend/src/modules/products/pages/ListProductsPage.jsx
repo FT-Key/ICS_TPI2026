@@ -1,27 +1,28 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import Button from "../../shared/components/Button";
-import Card from "../../shared/components/Card";
-import Pagination from "../../shared/components/Pagination";
-import { usePagination } from "../../shared/hooks/usePagination";
-import { getProducts } from "../services/list";
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Button from '../../shared/components/Button';
+import Card from '../../shared/components/Card';
+import Pagination from '../../shared/components/Pagination';
+import { usePagination } from '../../shared/hooks/usePagination';
+import { getProducts } from '../services/list';
 
 const productStatus = {
-  ALL: "all",
-  ENABLED: "enabled",
-  DISABLED: "disabled",
+  ALL: 'all',
+  ENABLED: 'enabled',
+  DISABLED: 'disabled',
 };
 
 function ListProductsPage() {
   const navigate = useNavigate();
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [status, setStatus] = useState(productStatus.ALL);
   const pagination = usePagination(10);
 
   const [products, setProducts] = useState([]);
 
   const [loading, setLoading] = useState(false);
+  const { pageNumber, pageSize, setTotal } = pagination;
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -30,20 +31,21 @@ function ListProductsPage() {
         const { data, error } = await getProducts(
           searchTerm,
           status,
-          pagination.pageNumber,
-          pagination.pageSize
+          pageNumber,
+          pageSize,
         );
 
         if (error) {
-          pagination.setTotal(0);
+          setTotal(0);
           setProducts([]);
+
           return;
         }
 
-        pagination.setTotal(data?.total || 0);
+        setTotal(data?.total || 0);
         setProducts(data?.productItems || []);
-      } catch (error) {
-        pagination.setTotal(0);
+      } catch {
+        setTotal(0);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -51,7 +53,7 @@ function ListProductsPage() {
     };
 
     fetchProducts();
-  }, [searchTerm, status, pagination.pageNumber, pagination.pageSize]);
+  }, [searchTerm, status, pageNumber, pageSize, setTotal]);
 
   const handleSearch = async () => {
     pagination.setPageNumber(1);
@@ -64,7 +66,7 @@ function ListProductsPage() {
           <h1 className="text-xl sm:text-3xl">Productos</h1>
           <Button
             className="h-11 w-11 rounded-2xl sm:hidden"
-            onClick={() => navigate("/admin/products/create")}
+            onClick={() => navigate('/admin/products/create')}
           >
             <svg
               viewBox="0 0 20 20"
@@ -84,7 +86,7 @@ function ListProductsPage() {
 
           <Button
             className="hidden sm:block"
-            onClick={() => navigate("/admin/products/create")}
+            onClick={() => navigate('/admin/products/create')}
           >
             Crear Producto
           </Button>
@@ -112,14 +114,14 @@ function ListProductsPage() {
                   strokeLinejoin="round"
                 ></g>
                 <g id="SVGRepo_iconCarrier">
-                  {" "}
+                  {' '}
                   <path
                     d="M15.7955 15.8111L21 21M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z"
                     stroke="#000000"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                  ></path>{" "}
+                  ></path>{' '}
                 </g>
               </svg>
             </Button>
@@ -147,8 +149,8 @@ function ListProductsPage() {
                     {product.sku} - {product.name}
                   </h1>
                   <p className="text-sm sm:text-base">
-                    Stock: {product.stockQuantity} - ${product.currentUnitPrice}{" "}
-                    - {product.isActive ? "Activado" : "Desactivado"}
+                    Stock: {product.stockQuantity} - ${product.currentUnitPrice}{' '}
+                    - {product.isActive ? 'Activado' : 'Desactivado'}
                   </p>
                 </div>
 
