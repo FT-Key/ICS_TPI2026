@@ -1,0 +1,49 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [development]
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch: {}
+
+jobs:
+  backend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ICS_TPI2026_backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore Dsw2025Tpi.sln
+      - run: dotnet build Dsw2025Tpi.sln --no-restore -c Release
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ICS_TPI2026_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ICS_TPI2026_frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  branch-name-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Head ref: ${{ github.head_ref }}"
+          if ! [[ "${{ github.head_ref }}" =~ ^(feature/|hotfix/|release/|docs/) ]]; then
+            echo "Nombre de rama no permitido. Usa feature/*, hotfix/*, release/* o docs/*."
+            exit 1
+          fi
