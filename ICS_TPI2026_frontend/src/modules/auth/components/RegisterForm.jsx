@@ -23,13 +23,14 @@ function RegisterForm({ onSuccess }) {
   const onValid = async ({ username, password, email, name }) => {
     setBackendError('');
     setSuccessMessage('');
-    
+
     const finalRole = 'User';
 
-    const { data, error } = await registerUser(username, password, email, finalRole, name);
+    const { error } = await registerUser(username, password, email, finalRole, name);
 
     if (error) {
       setBackendError(error.message || 'No se pudo completar el registro');
+
       return;
     }
 
@@ -69,9 +70,9 @@ function RegisterForm({ onSuccess }) {
 
       <Input
         label="Usuario"
-        {...register('username', { 
+        {...register('username', {
           required: 'El usuario es obligatorio',
-          minLength: { value: 3, message: 'El usuario debe tener al menos 3 caracteres' }
+          minLength: { value: 3, message: 'El usuario debe tener al menos 3 caracteres' },
         })}
         error={errors.username?.message}
       />
@@ -79,12 +80,12 @@ function RegisterForm({ onSuccess }) {
       <Input
         label="Email"
         type="email"
-        {...register('email', { 
+        {...register('email', {
           required: 'El email es obligatorio',
           pattern: {
             value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-            message: 'Email inválido'
-          }
+            message: 'Email inválido',
+          },
         })}
         error={errors.email?.message}
       />
@@ -92,9 +93,9 @@ function RegisterForm({ onSuccess }) {
       <Input
         label="Contraseña"
         type="password"
-        {...register('password', { 
+        {...register('password', {
           required: 'La contraseña es obligatoria',
-          minLength: { value: 8, message: 'La contraseña debe tener al menos 8 caracteres' }
+          minLength: { value: 8, message: 'La contraseña debe tener al menos 8 caracteres' },
         })}
         error={errors.password?.message}
       />
@@ -111,9 +112,9 @@ function RegisterForm({ onSuccess }) {
 
       <Input
         label="Nombre"
-        {...register('name', { 
+        {...register('name', {
           required: 'El nombre es obligatorio',
-          minLength: { value: 2, message: 'El nombre debe tener al menos 2 caracteres' }
+          minLength: { value: 2, message: 'El nombre debe tener al menos 2 caracteres' },
         })}
         error={errors.name?.message}
       />
@@ -135,8 +136,8 @@ function RegisterForm({ onSuccess }) {
         </div>
       )}
 
-      <ErrorBanner 
-        message={backendError} 
+      <ErrorBanner
+        message={backendError}
         onClose={() => setBackendError('')}
       />
 

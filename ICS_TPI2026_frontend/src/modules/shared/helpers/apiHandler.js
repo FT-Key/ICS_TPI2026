@@ -6,6 +6,7 @@
 export const handleApiCall = async (apiCall) => {
   try {
     const response = await apiCall();
+
     return { data: response.data, error: null };
   } catch (err) {
     const data = err.response?.data;
@@ -31,6 +32,7 @@ export const handleApiCall = async (apiCall) => {
         if (e.code && passwordErrors[e.code]) {
           return passwordErrors[e.code];
         }
+
         return e.description || e.message || e;
       }).join(', ');
     }
@@ -39,6 +41,7 @@ export const handleApiCall = async (apiCall) => {
     else if (data?.errors && typeof data.errors === 'object') {
       const firstErrorKey = Object.keys(data.errors)[0];
       const firstError = data.errors[firstErrorKey];
+
       if (Array.isArray(firstError)) {
         errorMessage = firstError[0];
       } else {
@@ -49,7 +52,7 @@ export const handleApiCall = async (apiCall) => {
     else if (data?.detail) {
       errorMessage = data.detail;
     }
-    else if (data?.title && data.title !== "One or more validation errors occurred.") {
+    else if (data?.title && data.title !== 'One or more validation errors occurred.') {
       errorMessage = data.title;
     }
 

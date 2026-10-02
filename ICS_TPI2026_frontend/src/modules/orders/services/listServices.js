@@ -11,8 +11,9 @@ export const getOrders = async (customerId = null, status = null, pageNumber = 1
   try {
     // Primero intento con axios
     const response = await instance.get(`api/orders?${queryString}`);
+
     return { data: response.data, error: null };
-  } catch (err) {
+  } catch {
     try {
       // Si axios falla, intento con fetch manual
       const url = `api/orders?${queryString}`;
@@ -32,6 +33,7 @@ export const getOrders = async (customerId = null, status = null, pageNumber = 1
       }
 
       const items = data?.items || data?.results || data || [];
+
       return { data: Array.isArray(items) ? items : [], error: null };
     } catch (error) {
       return { data: [], error };

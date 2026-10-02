@@ -10,6 +10,6 @@ export const createProduct = async (formData) => {
       description: formData.description,
       currentUnitPrice: formData.price,
       stockQuantity: formData.stock,
-    })
+    }),
   );
 };

@@ -19,7 +19,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet restore Dsw2025Tpi.sln
-      - run: dotnet build Dsw2025Tpi.sln --no-restore -c Release
+      - run: dotnet build Dsw2025Tpi.sln --no-restore -c Release /p:TreatWarningsAsErrors=true
 
   frontend-build:
     runs-on: ubuntu-latest
@@ -38,7 +38,6 @@ jobs:
 
   frontend-lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: ICS_TPI2026_frontend
@@ -50,7 +49,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ICS_TPI2026_frontend/package-lock.json
       - run: npm ci
-      - run: npm run lint
+      - run: npm run lint -- --max-warnings 0
 
   branch-name-check:
     if: github.event_name == 'pull_request'
@@ -58,7 +57,7 @@ jobs:
     steps:
       - run: |
           echo "Head ref: ${{ github.head_ref }}"
-          if ! [[ "${{ github.head_ref }}" =~ ^(feature/|hotfix/|release/|docs/) ]]; then
-            echo "Nombre de rama no permitido. Usa feature/*, hotfix/*, release/* o docs/*."
+          if ! [[ "${{ github.head_ref }}" =~ ^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/) ]]; then
+            echo "Nombre de rama no permitido. Usa feature/*, feat/*, fix/*, hotfix/*, bugfix/*, release/*, docs/*, chore/* o refactor/*."
             exit 1
           fi
