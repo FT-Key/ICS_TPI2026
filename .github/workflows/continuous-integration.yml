@@ -27,7 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f ICS_TPI2026_backend/Dockerfile -t ics-api:ci ICS_TPI2026_backend
 
-  frontend-build:    runs-on: ubuntu-latest
+  frontend-build:
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ICS_TPI2026_frontend
