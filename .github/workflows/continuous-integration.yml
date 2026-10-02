@@ -36,6 +36,22 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  frontend-lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ICS_TPI2026_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ICS_TPI2026_frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
   branch-name-check:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
