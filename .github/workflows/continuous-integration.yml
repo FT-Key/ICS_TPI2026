@@ -57,7 +57,7 @@ jobs:
     steps:
       - run: |
           echo "Head ref: ${{ github.head_ref }}"
-          if ! [[ "${{ github.head_ref }}" =~ ^(feature/|hotfix/|release/|docs/) ]]; then
-            echo "Nombre de rama no permitido. Usa feature/*, hotfix/*, release/* o docs/*."
+          if ! [[ "${{ github.head_ref }}" =~ ^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/) ]]; then
+            echo "Nombre de rama no permitido. Usa feature/*, feat/*, fix/*, hotfix/*, bugfix/*, release/*, docs/*, chore/* o refactor/*."
             exit 1
           fi
