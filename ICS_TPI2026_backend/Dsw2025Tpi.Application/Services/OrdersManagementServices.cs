@@ -131,6 +131,9 @@ namespace Dsw2025Tpi.Application.Services
 
             foreach (var item in request.OrderItems)
             {
+                // US-28: Validar cada item individualmente
+                OrderItemValidator.Validate(item);
+
                 var product = await _repository.GetById<Product>(item.ProductId)
                     ?? throw new EntityNotFoundException($"Producto not found: {item.ProductId}");
 
