@@ -62,7 +62,7 @@ public class Program
         {
             options.AddPolicy("AllowFrontend", policy =>
             {
-                policy.WithOrigins("http://localhost:5173", "http://localhost:5174") // Agregamos ambos puertos porque no logr� otra solucion :/
+                policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "https://ics-tpi-2026.vercel.app")
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
