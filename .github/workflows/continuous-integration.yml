@@ -63,6 +63,10 @@ jobs:
     steps:
       - run: |
           echo "Head ref: ${{ github.head_ref }}"
+          if [[ "${{ github.head_ref }}" == "development" || "${{ github.head_ref }}" == "main" ]]; then
+            echo "Rama principal detectada - branch check omitido."
+            exit 0
+          fi
           if ! [[ "${{ github.head_ref }}" =~ ^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/) ]]; then
             echo "Nombre de rama no permitido. Usa feature/*, feat/*, fix/*, hotfix/*, bugfix/*, release/*, docs/*, chore/* o refactor/*."
             exit 1
