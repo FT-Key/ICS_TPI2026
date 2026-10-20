@@ -1,0 +1,52 @@
+name: Build and Deploy to Azure App Service (Publish Profile)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_USERNAME: fntkey
+  IMAGE_NAME: ics-api
+  BACKEND_DIR: ICS_TPI2026_backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Obtener el codigo
+        uses: actions/checkout@v4
+
+      - name: 2. Iniciar sesion en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 3. Construir la imagen Docker (.NET 8)
+        run: |
+          docker build \
+            -f ${{ env.BACKEND_DIR }}/Dockerfile \
+            -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.BACKEND_DIR }}
+
+      - name: 4. Subir la imagen a Docker Hub
+        run: |
+          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: 5. Desplegar el contenedor en Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          images: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: 6. Smoke test
+        run: |
+          for i in $(seq 1 12); do
+            curl -fsS https://${{ secrets.APP_SERVICE_NAME }}.azurewebsites.net/healthcheck && exit 0
+            sleep 10
+          done
+          exit 1
