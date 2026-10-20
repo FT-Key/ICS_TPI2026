@@ -1,5 +1,5 @@
 // Este archivo solo define cómo se ve UNA tarjeta.
-export default function Card({ children, className = "" }) {
+export default function Card({ children, className = '' }) {
   return (
     <div className={`
       bg-white 

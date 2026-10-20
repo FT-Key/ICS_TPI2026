@@ -8,13 +8,13 @@ function Input({ label, error = '', ...restProps }) {
       '
     >
       <label
-      className="text-sm sm:text-base">{label}:</label>
+        className="text-sm sm:text-base">{label}:</label>
       <input className={`
       text-base sm:text-lg 
       p-2 sm:p-3
       ${error && 'border-red-400'}
-      `} 
-  {...restProps}/>
+      `}
+      {...restProps}/>
       {error && <p className="text-red-500 text-base sm:text-xs">{error}</p>}
     </div>
   );

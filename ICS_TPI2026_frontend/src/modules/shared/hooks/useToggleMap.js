@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from 'react';
 
 /**
  * Hook para manejar múltiples banderas booleanas (por nombre).

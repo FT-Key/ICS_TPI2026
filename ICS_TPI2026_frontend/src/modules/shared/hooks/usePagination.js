@@ -47,7 +47,7 @@ export function usePagination(initialPageSize = 10) {
     pageSize,
     total,
     totalPages,
-    
+
     // Funciones
     setPageNumber,
     setPageSize: changePageSize,

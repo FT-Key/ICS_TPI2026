@@ -62,7 +62,7 @@ public class Program
         {
             options.AddPolicy("AllowFrontend", policy =>
             {
-                policy.WithOrigins("http://localhost:5173", "http://localhost:5174") // Agregamos ambos puertos porque no logré otra solucion :/
+                policy.WithOrigins("http://localhost:5173", "http://localhost:5174") // Agregamos ambos puertos porque no logrï¿½ otra solucion :/
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
@@ -120,9 +120,9 @@ public class Program
             dbContext.Database.Migrate();
             var authContext = scope.ServiceProvider.GetRequiredService<AuthenticateContext>();
             authContext.Database.Migrate();
-            dbContext.Seedwork<Product>("Sources/products.json");
-            dbContext.Seedwork<Customer>("Sources/customers.json");
-            dbContext.Seedwork<Order>("Sources/orders.json");
+            dbContext.Seedwork<Product>("Sources/Products.json");
+            dbContext.Seedwork<Customer>("Sources/Customers.json");
+            dbContext.Seedwork<Order>("Sources/Orders.json");
            
             
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();

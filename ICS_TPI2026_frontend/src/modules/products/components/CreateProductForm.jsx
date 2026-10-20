@@ -29,15 +29,15 @@ function CreateProductForm() {
   const onValid = async (formData) => {
     setBackendError(''); // Limpiar errore
 
-    const { data, error } = await createProduct(formData);
+    const { error } = await createProduct(formData);
 
     if (error) {
 
       setBackendError(error.message || error.backendMessage || 'Error al crear el producto');
+
       return;
     }
 
-   
     navigate('/admin/products');
   };
 
@@ -54,7 +54,6 @@ function CreateProductForm() {
         '
         onSubmit={handleSubmit(onValid)}
       >
-        
 
         <Input
           label='SKU'
@@ -64,7 +63,7 @@ function CreateProductForm() {
             required: 'El SKU es obligatorio',
             pattern: {
               value: /^[A-Z]{3}\d{3}$/,
-              message: 'El SKU debe tener formato AAA123 (3 letras mayúsculas y 3 números)'
+              message: 'El SKU debe tener formato AAA123 (3 letras mayúsculas y 3 números)',
             },
           })}
         />
@@ -76,7 +75,7 @@ function CreateProductForm() {
             required: 'El código único es obligatorio',
             pattern: {
               value: /^INT-\d{3}$/,
-              message: 'El CUI debe tener formato INT-123'
+              message: 'El CUI debe tener formato INT-123',
             },
           })}
         />
@@ -116,8 +115,8 @@ function CreateProductForm() {
             },
           })}
         />
-        <ErrorBanner 
-          message={backendError} 
+        <ErrorBanner
+          message={backendError}
           onClose={() => setBackendError('')}
         />
         <div className='sm:text-end'>

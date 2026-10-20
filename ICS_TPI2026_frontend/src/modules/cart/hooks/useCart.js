@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 
-const CART_KEY = "cart";
+const CART_KEY = 'cart';
 
 export function useCart() {
   const [cart, setCart] = useState([]);
 
   useEffect(() => {
     const stored = localStorage.getItem(CART_KEY);
+
     if (stored) setCart(JSON.parse(stored));
   }, []);
 
@@ -16,22 +17,23 @@ export function useCart() {
   };
 
   const addToCart = (product, quantity) => {
-    if (quantity < 1) return alert("Debes agregar al menos 1 producto.");
+    if (quantity < 1) return alert('Debes agregar al menos 1 producto.');
 
     const updated = [...cart];
     const existing = updated.find((i) => i.sku === product.sku);
 
-     const productToAdd = {
-    ...product,
-    quantity,
-    productId: product.id ?? product.sku, // <-- agregamos productId
-  };
+    const productToAdd = {
+      ...product,
+      quantity,
+      productId: product.id ?? product.sku, // <-- agregamos productId
+    };
 
-  if (existing) {
-    existing.quantity += quantity;
-  } else {
-    updated.push(productToAdd);
-  }
+    if (existing) {
+      existing.quantity += quantity;
+    } else {
+      updated.push(productToAdd);
+    }
+
     save(updated);
   };
 
@@ -45,25 +47,24 @@ export function useCart() {
   };
 
   const updateQuantity = (sku, newQuantity) => {
-  if (newQuantity <= 0) {
-    return removeFromCart(sku);
-  }
+    if (newQuantity <= 0) {
+      return removeFromCart(sku);
+    }
 
-  const updated = cart.map(item =>
-    item.sku === sku
-      ? { ...item, quantity: newQuantity }
-      : item
-  );
+    const updated = cart.map(item =>
+      item.sku === sku
+        ? { ...item, quantity: newQuantity }
+        : item,
+    );
 
-  save(updated);
-};
-
+    save(updated);
+  };
 
   return {
     cart,
     addToCart,
     removeFromCart,
     clearCart,
-    updateQuantity
+    updateQuantity,
   };
 }

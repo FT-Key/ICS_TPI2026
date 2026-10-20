@@ -74,14 +74,14 @@ namespace Dsw2025Tpi.Application.Services
             );
 
             // 4. Calcular Total (Para la paginación)
-            var totalCount = orders.Count();
+            var totalCount = orders?.Count() ?? 0;
 
             // 5. Validar y Corregir Paginación
             int pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
             int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
 
             // 6. Paginar y Mapear
-            var paginatedItems = orders
+            var paginatedItems = (orders ?? Enumerable.Empty<Order>())
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .Select(order => new OrderModel.ResponseOrderModel(

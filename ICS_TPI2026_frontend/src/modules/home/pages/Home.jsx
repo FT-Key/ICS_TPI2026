@@ -18,7 +18,7 @@ function Home() {
 
         if (orderData) setTotalOrders(orderData.totalCount);
 
-      } catch (err) {
+      } catch {
         // Error manejado
       }
     };

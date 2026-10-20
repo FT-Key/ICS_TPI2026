@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import Button from '../../shared/components/Button';
 import Card from '../../shared/components/Card';
 import Pagination from '../../shared/components/Pagination';
@@ -17,33 +16,33 @@ const orderStatus = {
 };
 
 function ListOrdersPage() {
-  const navigate = useNavigate();
-
   const [searchTerm, setSearchTerm] = useState('');
   const [status, setStatus] = useState(orderStatus.ALL);
   const pagination = usePagination(10);
+  const { pageNumber, pageSize, setTotal } = pagination;
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await getOrders(searchTerm, status, pagination.pageNumber, pagination.pageSize);
+      const { data, error } = await getOrders(searchTerm, status, pageNumber, pageSize);
+
       if (error) throw error;
 
-      pagination.setTotal(data.totalCount);      
-    setOrders(data.items ?? []);
-    } catch (error) {
+      setTotal(data.totalCount);
+      setOrders(data.items ?? []);
+    } catch {
       // Error manejado
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, status, pageNumber, pageSize, setTotal]);
 
   useEffect(() => {
     fetchOrders();
-  }, [status, pagination.pageSize, pagination.pageNumber]);
+  }, [fetchOrders]);
 
   return (
     <div>
@@ -61,21 +60,21 @@ function ListOrdersPage() {
               placeholder="Buscar"
               className="text-base sm:text-[1.3rem] w-full"
             />
-           <Button onClick={fetchOrders} className="h-11 w-11 flex items-center justify-center p-0">
-             <svg 
-                viewBox="0 0 24 24" 
-                fill="none" 
+            <Button onClick={fetchOrders} className="h-11 w-11 flex items-center justify-center p-0">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 className="w-6 h-6"
               >
                 <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
                 <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
                 <g id="SVGRepo_iconCarrier">
-                  <path 
-                    d="M15.7955 15.8111L21 21M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" 
-                    stroke="#000000" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
+                  <path
+                    d="M15.7955 15.8111L21 21M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z"
+                    stroke="#000000"
+                    strokeWidth="2"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </g>
@@ -101,28 +100,28 @@ function ListOrdersPage() {
           <span>Cargando órdenes...</span>
         ) : (
           orders.map((order) => (
-           <Card key={order.id}>
-            <div className="flex justify-between items-center w-full">
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold">
+            <Card key={order.id}>
+              <div className="flex justify-between items-center w-full">
+                <div>
+                  <h1 className="text-lg sm:text-xl font-bold">
                   #{order.id}
-                  {order.customerName && (
-                    <span className="text-gray-600 font-normal ml-2">
+                    {order.customerName && (
+                      <span className="text-gray-600 font-normal ml-2">
                       | {order.customerName}
-                    </span>
-                  )}
-                </h1>
-                <p className="text-sm sm:text-base text-gray-700 mt-1">Estado: <span className="font-semibold">{order.status}</span></p>
-                <p className="text-sm sm:text-base text-gray-700 mt-1">Total: <span className="font-semibold">${order.totatAmount?.toFixed(2)}</span></p>
-              </div>
+                      </span>
+                    )}
+                  </h1>
+                  <p className="text-sm sm:text-base text-gray-700 mt-1">Estado: <span className="font-semibold">{order.status}</span></p>
+                  <p className="text-sm sm:text-base text-gray-700 mt-1">Total: <span className="font-semibold">${order.totatAmount?.toFixed(2)}</span></p>
+                </div>
 
-              <Button 
-                className="hidden sm:flex h-11 w-11 items-center justify-center cursor-default"
-              >
+                <Button
+                  className="hidden sm:flex h-11 w-11 items-center justify-center cursor-default"
+                >
                 Ver
-              </Button>
-            </div>
-          </Card>
+                </Button>
+              </div>
+            </Card>
           ))
         )}
       </div>
@@ -140,4 +139,3 @@ function ListOrdersPage() {
 }
 
 export default ListOrdersPage;
-

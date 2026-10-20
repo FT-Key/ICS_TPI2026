@@ -21,10 +21,10 @@ import { createOrder } from '../../orders/services/createOrder';
 function CartPage() {
   const navigate = useNavigate();
   const { cart, removeFromCart, clearCart, updateQuantity } = useCart();
-  const { user, isAuthenticated} = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const isAdmin = user?.role === 'Admin'; // o el valor exacto que uses para admin
 
-  const { deleteQuantities, get, increment, decrement, reset } = useDeleteQuantity();
+  const { get, increment, decrement, reset } = useDeleteQuantity();
 
   const {
     state: modals,
@@ -50,7 +50,7 @@ function CartPage() {
       window.removeEventListener('open-login', openLogin);
       window.removeEventListener('open-register', openRegister);
     };
-  }, []);
+  }, [open]);
 
   const sendOrder = async () => {
     if (!isAuthenticated) {
@@ -71,13 +71,13 @@ function CartPage() {
         })),
       };
 
-      const { data, error } = await createOrder(orderData);
+      const { error } = await createOrder(orderData);
 
       if (error) throw error;
 
       clearCart();
       navigate('/');
-    } catch (err) {
+    } catch {
       alert('Error al procesar la orden.');
     }
   };
@@ -214,11 +214,11 @@ function CartPage() {
           <h2 className="text-lg font-semibold">Detalle del pedido</h2>
           <p className="text-lg">Total ítems: {totalItems}</p>
           <p className="text-lg">Total a pagar: ${totalAmount.toFixed(2)}</p>
-        {isAdmin && (
-    <p className="text-sm text-red-600 mt-2">
+          {isAdmin && (
+            <p className="text-sm text-red-600 mt-2">
       Los administradores no pueden realizar compras
-    </p>
-  )}
+            </p>
+          )}
 
           <Button
             className="w-full py-1 text-sm sm:text-base sm:py-2"

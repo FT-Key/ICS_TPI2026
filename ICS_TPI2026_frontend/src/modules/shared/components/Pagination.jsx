@@ -1,12 +1,12 @@
 /**
  * Componente reutilizable de paginación
  * @param {object} props
- * @param {number} props.currentPage 
+ * @param {number} props.currentPage
  * @param {number} props.totalPages
- * @param {number} props.pageSize 
- * @param {function} props.onPrevPage 
- * @param {function} props.onNextPage 
- * @param {function} props.onPageSizeChange 
+ * @param {number} props.pageSize
+ * @param {function} props.onPrevPage
+ * @param {function} props.onNextPage
+ * @param {function} props.onPageSizeChange
  * @param {array} props.pageSizeOptions
  */
 function Pagination({
