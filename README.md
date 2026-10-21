@@ -28,14 +28,14 @@ C4Context
 
     System(ecommerce, "E-commerce ICS", "Plataforma de comercio electronico con JWT y roles")
 
-    System_Ext(sqlserver, "SQL Server (Monster ASP.NET)", "Base de datos relacional en la nube")
-    System_Ext(VERCEL, "VERCEL", "Despliegue del frontend React")
-    System_Ext(render, "Render", "Despliegue del backend .NET")
+    System_Ext(sqlserver, "Azure SQL Database", "Base de datos relacional en la nube")
+    System_Ext(VERCEL, "Vercel", "Despliegue del frontend React")
+    System_Ext(azure, "Azure App Service", "Despliegue del backend .NET (contenedor Docker)")
 
     Rel(cliente, ecommerce, "Navega catalogo, crea ordenes", "HTTPS")
     Rel(admin, ecommerce, "Gestiona productos y ordenes", "HTTPS")
     Rel(ecommerce, sqlserver, "Lee/escribe datos", "EF Core / TCP 1433")
-    Rel(ecommerce, render, "Backend API desplegado", "HTTPS")
+    Rel(ecommerce, azure, "Backend API desplegado", "HTTPS")
 ```
 
 ### C4 Model — Nivel 2: Contenedores
@@ -58,7 +58,7 @@ C4Container
         Container(data, "Data Layer", "EF Core + Repositories", "Persistencia")
     }
 
-    System_Ext(sqlserver, "SQL Server (Monster ASP.NET)", "Base de datos relacional")
+    System_Ext(sqlserver, "Azure SQL Database", "Base de datos relacional")
 
     Rel(cliente, spa, "Usa", "HTTPS")
     Rel(admin, spa, "Usa", "HTTPS")
@@ -248,7 +248,7 @@ erDiagram
 | Tailwind CSS | 4.1.14 | Estilos utility-first |
 | jwt-decode | 4.0.0 | Decodificacion de JWT |
 
-**Despliegue:** Vercel (frontend SPA estatico)
+**Despliegue:** Vercel — https://ics-tpi-2026.vercel.app (frontend SPA estatico)
 
 ### Backend
 
@@ -261,14 +261,14 @@ erDiagram
 | JWT Bearer | -- | Autenticacion JWT |
 | Swashbuckle | 6.6.2 | Swagger/OpenAPI |
 
-**Despliegue:** Render (servicio web)
+**Despliegue:** Azure App Service (contenedor Docker, plan Free F1) — https://ics-tp3-43739-eveqhxemd5cmdee7.brazilsouth-01.azurewebsites.net
 
 ### Base de Datos
 
 | Tecnologia | Uso |
 |---|---|
 | SQL Server | Base de datos relacional |
-| Monster ASP.NET | Hosting SQL Server en la nube |
+| Azure SQL Database | Base de datos en la nube (plan gratuito) |
 
 **Conexion:** EF Core via TCP 1433
 
@@ -300,7 +300,11 @@ ICS/
 │   ├── PLAN.md                    → Plan de implementacion
 │   ├── TP1_Resuelto.md            → Auditoria tecnica
 │   ├── TP1_Hallazgos_Adicionales.md → Bugs + deuda tecnica
-│   └── DB_Config.md               → Configuracion de BD
+│   ├── DB_Config.md               → Configuracion de BD
+│   ├── guia-tp3.md                → Guia de la catedra (TP3)
+│   ├── TP3_Plan.md                → Plan de ejecucion del TP3
+│   ├── TP3_Documentacion.md       → Documentacion consolidada del TP3
+│   └── DESPLIEGUE_AZURE.md        → Guia paso a paso del despliegue en Azure
 │
 └── README.md                      → Este archivo
 ```
@@ -392,7 +396,7 @@ cd ICS_TPI2026_backend
 dotnet run --project Dsw2025Tpi.Api
 ```
 
-Backend en `http://localhost:5142`. Swagger en `/swagger`.
+Backend en `http://localhost:5142` (o en `http://localhost:8080` si se levanta con `docker compose up -d`). Swagger en `/swagger` (solo en entorno `Development`).
 
 ### 3. Frontend
 
@@ -406,11 +410,13 @@ Frontend en `http://localhost:5173`. Proxy redirige `/api` al backend.
 
 ### Variables de entorno
 
-El frontend (`.env.development`) debe apuntar al puerto del backend:
+El frontend (`.env`, no versionado) debe apuntar al puerto del backend:
 
 ```
-VITE_BACKEND_URL=http://localhost:5142/
+VITE_BACKEND_URL=http://localhost:8080
 ```
+
+En produccion, `VITE_BACKEND_URL` se configura en el panel de Vercel apuntando a la URL de Azure (ver `docs/TP3_Documentacion.md`, capitulo 8).
 
 ---
 
@@ -443,9 +449,19 @@ Los nombres van en minusculas y con guiones. Las ramas de trabajo siempre siguen
 
 | Componente | Plataforma | Configuracion |
 |---|---|---|
-| Frontend | Vercel | Build: `npm run output`, Root: `dist/` |
-| Backend | Render | Docker o buildpack .NET 8 |
-| Base de datos | Monster ASP.NET | SQL Server en la nube |
+| Frontend | Vercel — https://ics-tpi-2026.vercel.app | Build: `npm run build`, salida `dist/`; env `VITE_BACKEND_URL` en el dashboard |
+| Backend | Azure App Service (Free F1, contenedor) — https://ics-tp3-43739-eveqhxemd5cmdee7.brazilsouth-01.azurewebsites.net | Imagen `fntkey/ics-api` (Docker Hub); deploy via `.github/workflows/deploy.yml` |
+| Base de datos | Azure SQL Database (Free) | Servidor `ics-sql-43739`, base `ics-db`; firewall "Allow Azure services" |
+| CI/CD | GitHub Actions | `continuous-integration.yml` (CI) + `deploy.yml` (CD) |
+
+### Credenciales de acceso
+
+| Entorno | Usuario admin | Contraseña | Base de datos |
+|---|---|---|---|
+| Local | `admin` | `SecurePassword123!` (en `appsettings.json`) | `sa` / `YourStrong!Password123` (en `docker-compose.yml`) |
+| Produccion (Azure) | `admin` | `AdminTp3$2026!Xyz` (en Application Settings) | via connection string de la App Service |
+
+Detalles y variables de entorno completas: `docs/TP3_Documentacion.md`, capitulo 8.
 
 ---
 
@@ -459,6 +475,7 @@ Los nombres van en minusculas y con guiones. Las ramas de trabajo siempre siguen
 | CORS | Configurado para produccion |
 | Roles | "Admin", "User" seeded |
 | Autorizacion por roles | `[Authorize(Roles="Admin")]` |
+| Rate limiting en `/healthcheck` | 30 req/min por IP; el endpoint ademas chequea la BD (CanConnectAsync) |
 
 ---
 
@@ -477,3 +494,7 @@ Ver `docs/TP1_Resuelto.md` para las 9 deudas tecnicas destacadas y `docs/TP1_Hal
 | `docs/TP1_Resuelto.md` | Auditoria tecnica con 9 hallazgos destacados |
 | `docs/TP1_Hallazgos_Adicionales.md` | 20+ bugs, deuda tecnica y optimizaciones |
 | `docs/DB_Config.md` | Configuracion de conexion a la base de datos |
+| `docs/TP3_Documentacion.md` | Documentacion consolidada del TP3: ramas, Dockerfile, pipeline, API-BD, despliegues, endpoints y credenciales |
+| `docs/TP3_Plan.md` | Plan de ejecucion del TP3 (fases y pendientes) |
+| `docs/DESPLIEGUE_AZURE.md` | Guia paso a paso del despliegue en Azure |
+| `docs/guia-tp3.md` | Guia de la catedra (TP3) |

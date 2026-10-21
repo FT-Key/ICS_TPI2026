@@ -4,6 +4,8 @@
 > **Stack:** React 19 + .NET 8 + SQL Server  
 > **Fecha:** Octubre 2026  
 > **Cuenta:** Azure for Students ($100 USD de crédito)
+> 
+> **Nota:** esta guía documenta el paso a paso histórico de creación de los recursos. El documento consolidado oficial del TP3 (ramas, Dockerfile, pipeline, conexión API↔BD, endpoints y credenciales) es `docs/TP3_Documentacion.md`.
 
 ---
 
@@ -195,11 +197,11 @@ Los **App Settings** son pares clave/valor que Azure inyecta como **variables de
 | `Jwt__Audience` | `Dsw2025Tpi.Client` | Fijo | Audiencia del token JWT (el frontend) |
 | `DefaultAdminUser__UserName` | `admin` | Fijo | Usuario admin seed (se crea al iniciar) |
 | `DefaultAdminUser__Email` | `admin@example.com` | Fijo | Email del admin seed |
-| `DefaultAdminUser__Password` | `AdminTp3$2026!Xyz` |你自己定 | Password del admin seed |
+| `DefaultAdminUser__Password` | `AdminTp3$2026!Xyz` | Definido por el equipo | Password del admin seed |
 | `DefaultAdminUser__Role` | `Admin` | Fijo | Rol del admin seed |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | Fijo | Entorno (afecta logging, Swagger, etc.) |
 | `WEBSITES_PORT` | `8080` | Puerto del Dockerfile | Puerto donde App Service expone el contenedor |
-| `EnableSwagger` | `true` | Para TP3 Bloque 4 | Habilita Swagger en producción (solo para demo) |
+| `EnableSwagger` | `true` | Para TP3 Bloque 4 | Habilita Swagger en la URL pública aunque el entorno sea `Production`. `Program.cs` lo lee (`GetValue<bool>("EnableSwagger")`) y publica Swagger si el entorno es `Development` **o** el flag es `true` |
 
 ### Por qué doble guión bajo
 En .NET, la configuración usa `:` como separador (`ConnectionStrings:Dsw2025Tpi`), pero en Linux las variables de entorno **no pueden tener `:`** (es un carácter reservado). Azure usa `__` como alternativa y .NET lo convierte automáticamente.

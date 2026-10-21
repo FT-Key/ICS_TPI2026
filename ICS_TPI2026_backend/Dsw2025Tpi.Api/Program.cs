@@ -11,6 +11,8 @@ using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 
 namespace Dsw2025Tpi.Api;
@@ -69,6 +71,22 @@ public class Program
             });
         });
         builder.Services.AddHealthChecks();
+
+        // Rate limiting del endpoint /healthcheck: evita que alguien abuse del chequeo
+        // contra la base de datos para saturar conexiones o frenar la app.
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("healthcheck", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 30,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+        });
         builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
         {
             options.Password = new PasswordOptions
@@ -173,13 +191,17 @@ public class Program
 
         }
 
-        if (app.Environment.IsDevelopment())
+        // Swagger se publica en Development siempre, y en cualquier otro entorno
+        // (producción) solo si se configura el flag EnableSwagger=true (App Settings).
+        var enableSwagger = app.Configuration.GetValue<bool>("EnableSwagger");
+        if (app.Environment.IsDevelopment() || enableSwagger)
         {
             app.UseSwagger();
             app.UseSwaggerUI();
         }
 
         app.UseCors("AllowFrontend");
+        app.UseRateLimiter();
         app.UseHttpsRedirection();
 
         app.UseAuthentication();
@@ -190,7 +212,31 @@ public class Program
         app.Logger.LogInformation("Application has started successfully.");
 
         app.MapControllers();
-        app.MapHealthChecks("/healthcheck");
+
+        // Healthcheck liviano: además de responder, hace un chequeo mínimo a la base
+        // (CanConnectAsync = abrir conexión) para que el monitor mantenga despiertos
+        // tanto el App Service como la base. Limitado a 30 req/min por IP para que
+        // nadie pueda abusar del endpoint y saturar la base o la app.
+        app.MapGet("/healthcheck", async (Dsw2025TpiContext db, CancellationToken cancellationToken) =>
+        {
+            db.Database.SetCommandTimeout(TimeSpan.FromSeconds(5));
+            try
+            {
+                var canConnect = await db.Database.CanConnectAsync(cancellationToken);
+                return canConnect
+                    ? Results.Text("Healthy")
+                    : Results.Text("Database unreachable", statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+            catch (OperationCanceledException)
+            {
+                return Results.Text("Database timeout", statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+            catch
+            {
+                return Results.Text("Database error", statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+        })
+        .RequireRateLimiting("healthcheck");
 
         app.Run();
     }
