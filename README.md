@@ -414,6 +414,31 @@ VITE_BACKEND_URL=http://localhost:5142/
 
 ---
 
+## Flujo de Trabajo con Git
+
+### Ramas
+
+| Rama | Origen | Destino | Uso |
+|---|---|---|---|
+| `main` | - | - | Version estable, lista para produccion. Protegida: push directo rechazado. |
+| `development` | `main` | `main` | Integracion de las funcionalidades terminadas. Protegida: push directo rechazado. |
+| `feature/nombre-funcionalidad` | `development` | `development` | Nueva funcionalidad o tarea. Ej: `feature/tp3-docker`. |
+| `hotfix/descripcion` | `main` | `main` y `development` | Correccion urgente de un error en produccion. Ej: `hotfix/jwt-expiracion`. |
+
+Los nombres van en minusculas y con guiones. Las ramas de trabajo siempre siguen una de las dos convenciones: `feature/nombre-funcionalidad` o `hotfix/descripcion`.
+
+### Flujo de Pull Request
+
+1. Crear la rama desde la base correcta (`development` para `feature/*`, `main` para `hotfix/*`).
+2. Commitear con [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `ci:`...).
+3. Subir la rama y abrir un Pull Request hacia la rama destino.
+4. El pipeline de CI corre automaticamente sobre el PR.
+5. Un integrante del equipo distinto del autor revisa el PR y lo aprueba. Sin al menos 1 aprobacion, GitHub no permite fusionar.
+6. Se fusiona el PR desde GitHub y se elimina la rama.
+7. En un `hotfix/*`, repetir el PR hacia la otra rama (`main` y `development`) para que no diverjan.
+
+---
+
 ## Despliegue
 
 | Componente | Plataforma | Configuracion |
