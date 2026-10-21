@@ -1,7 +1,8 @@
 # TP3 — Gestión de Configuración y Pipeline CI/CD — Resumen + Plan de Ejecución
 
 > Fuente única leída: `docs/ICS2026_TP3.pdf` (UTN FRT, Ingeniería y Calidad del Software, 2026).
-> Estado: **SOLO PLAN — no se ejecutó ninguna tarea técnica todavía.**
+> Estado (21/10/2026): **plan ejecutado en su mayor parte** — Bloques 1, 2 y 3 completos (ramas, Docker, CI/CD, Azure + Vercel) y documentación consolidada en `docs/TP3_Documentacion.md`.
+> **Pendiente:** Bloque 4 — Swagger público desde el dominio de Azure. El deploy corre con `ASPNETCORE_ENVIRONMENT=Production` y `Program.cs` solo publica Swagger en `IsDevelopment()`, por lo que `/swagger` responde 404 en Azure (verificado 21/10/2026). Falta condicionar Swagger a un flag de configuración propio (ver `docs/TP3_Documentacion.md`, capítulo 6).
 
 ---
 
