@@ -40,7 +40,7 @@ El enunciado pide documentar el proceso completo, indicando **estrategia de rami
 | Dockerfile | 3 |
 | Pipeline | 4 |
 | Conexión entre API y base de datos | 5 |
-| Swagger (requisito: desde la URL de Azure; hoy expuesto solo en local) | 6 |
+| Swagger (habilitado desde la URL de Azure con el flag `EnableSwagger`) | 6 |
 | Hosting gratuito (Azure App Service Free + SQL Database Free) | 7 |
 | Frontend (Vercel), endpoints públicos y credenciales | 8 |
 
@@ -546,7 +546,8 @@ En Azure la conexión va **cifrada** (`Encrypt=True`) y se valida el certificado
 | `ConnectionStrings__Dsw2025Tpi` | Cadena de conexión a Azure SQL |
 | `Jwt__Key`, `Jwt__Issuer`, `Jwt__Audience` | Firma y validación de JWT (la clave es un valor aleatorio largo, distinto al de desarrollo) |
 | `DefaultAdminUser__UserName`, `__Email`, `__Password`, `__Role` | Administrador inicial (usuario `admin`; ver capítulo 8) |
-| `ASPNETCORE_ENVIRONMENT` | `Production`: entorno de ejecución del deploy (con el código actual esto deja Swagger **sin** exponer en Azure; ver capítulo 6) |
+| `ASPNETCORE_ENVIRONMENT` | `Production`: entorno de ejecución del deploy (Swagger se habilita igual por el flag `EnableSwagger`; ver capítulo 6) |
+| `EnableSwagger` | `true`: habilita Swagger en la URL pública aunque el entorno sea `Production` (ver capítulo 6) |
 | `WEBSITES_PORT` | `8080`: puerto en el que escucha el contenedor, para que App Service sepa a dónde enrutar |
 
 Los valores secretos viven **solo** en Azure (cifrados en reposo) y no en el repositorio.
@@ -572,7 +573,7 @@ Navegador / Frontend (Vercel)
         ▼
 Azure App Service (contenedor, puerto 8080)
    ├─ Controllers  →  /api/auth, /api/products, /api/orders
-   ├─ /healthcheck
+   ├─ /healthcheck (con chequeo a BD + rate limiting), /swagger (flag EnableSwagger)
    ├─ Dsw2025TpiContext  ──┐
    └─ AuthenticateContext ─┤  ConnectionStrings__Dsw2025Tpi
                            ▼
@@ -595,31 +596,32 @@ El TP exige que Swagger funcione desde la URL (dominio) que provee Azure.
 En `Program.cs` Swagger se registra con `AddSwaggerGen` (con definición de seguridad *Bearer* para probar los endpoints protegidos con JWT) y se publica mediante:
 
 ```csharp
-if (app.Environment.IsDevelopment())
+var enableSwagger = app.Configuration.GetValue<bool>("EnableSwagger");
+if (app.Environment.IsDevelopment() || enableSwagger)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 ```
 
-Es decir, Swagger solo se publica cuando el entorno es **`Development`**. Como el Dockerfile no fija el entorno, éste se inyecta desde fuera:
+Es decir, Swagger se publica cuando el entorno es **`Development`** **o** cuando el flag de configuración **`EnableSwagger=true`** esté presente. Como el Dockerfile no fija el entorno, ambos valores se inyectan desde fuera:
 
-- **Local** (`docker-compose.yml`): `ASPNETCORE_ENVIRONMENT=Development` → Swagger sí está disponible en `http://localhost:8080/swagger`.
-- **Azure (deploy)**: Application Settings con `ASPNETCORE_ENVIRONMENT=Production` → con el código actual, Swagger **no** se expone en la URL pública (verificado el 21/10/2026: `/swagger` responde `404`, `/healthcheck` responde `200`).
+- **Local** (`docker-compose.yml`): `ASPNETCORE_ENVIRONMENT=Development` → Swagger sí está disponible en `http://localhost:8080/swagger` (el flag no hace falta en desarrollo).
+- **Azure (deploy)**: Application Settings con `ASPNETCORE_ENVIRONMENT=Production` y **`EnableSwagger=true`** → Swagger queda disponible en la URL pública aunque el entorno sea `Production`.
 
-Para cumplir el requisito del TP (Swagger desde el dominio de Azure) **sin bajar el entorno a `Production`**, el camino previsto es condicionar Swagger a un flag de configuración propio (por ejemplo, leer `EnableSwagger` de la configuración y publicarlo solo cuando sea `true`), en lugar de apoyarse únicamente en `IsDevelopment()`. Ese cambio todavía **no** está implementado en `Program.cs`.
+> Verificado el 21/10/2026 antes del cambio: con `Production` y sin flag efectivo, `/swagger` respondía `404`. Con el flag implementado en `Program.cs`, tras el próximo deploy a `main` la URL pública debe responder `200`.
 
 ### 6.2 URLs
 
 | Entorno | URL | Estado |
 |---|---|---|
 | Local | `http://localhost:8080/swagger` | 200 (entorno `Development` vía compose) |
-| Azure (deploy) | `https://ics-tp3-43739-eveqhxemd5cmdee7.brazilsouth-01.azurewebsites.net/swagger` | 404 (entorno `Production`; ver §6.1) |
+| Azure (deploy) | `https://ics-tp3-43739-eveqhxemd5cmdee7.brazilsouth-01.azurewebsites.net/swagger` | 200 tras el deploy con `EnableSwagger=true` |
 | Healthcheck (Azure) | `https://ics-tp3-43739-eveqhxemd5cmdee7.brazilsouth-01.azurewebsites.net/healthcheck` | 200 |
 
 ### 6.3 Consideración de seguridad
 
-En el entorno `Development`, ASP.NET Core además muestra páginas de error detalladas. Por eso el deploy en Azure mantiene `ASPNETCORE_ENVIRONMENT=Production`: además de ser la opción correcta para un entorno público, evita exponer Swagger y las páginas de error detalladas. Si el TP exige Swagger en la URL de Azure, la recomendación es el flag de configuración propio descripto en §6.1, manteniendo `Production`.
+El deploy en Azure mantiene `ASPNETCORE_ENVIRONMENT=Production`: es la opción correcta para un entorno público y evita las páginas de error detalladas de desarrollo. Swagger se habilita **por flag explícito** (`EnableSwagger=true` en Application Settings), de modo que quede expuesto para el TP pero apagado por defecto en cualquier otro entorno donde no se configure (por defecto `false` en `appsettings.json`).
 
 ---
 
@@ -699,7 +701,7 @@ Cadena completa: **Navegador → Vercel (frontend) → Azure App Service (API) �
 | `GET` | `/api/products/admin` | Bearer (Admin) | Listado administrativo |
 | `GET` · `POST` | `/api/orders` | Bearer | Órdenes del usuario |
 | `GET` · `PUT` | `/api/orders/{id}` | Bearer | Detalle / actualización de orden |
-| `GET` | `/healthcheck` | — | Salud del servicio (lo usa el smoke test) |
+| `GET` | `/healthcheck` | — | Salud del servicio. Además del 200, hace un chequeo mínimo a la BD (`CanConnectAsync` con timeout de 5 s) para que el monitor despierte también la base. Protegido con rate limiting: 30 req/min por IP (`429` al excederlo), para que nadie pueda abusar del endpoint y saturar la base o la app. Lo usa el smoke test del pipeline y el monitor de disponibilidad |
 
 ### 8.3 Credenciales de acceso
 
@@ -724,6 +726,7 @@ Ambos con email `admin@example.com` y rol `Admin`. La API crea este usuario al a
 | `Jwt__Key` · `Jwt__Issuer` · `Jwt__Audience` | `appsettings.json` | Application Settings (clave aleatoria distinta) | — |
 | `DefaultAdminUser__*` | `appsettings.json` (`SecurePassword123!`) | Application Settings (`AdminTp3$2026!Xyz`) | — |
 | `ASPNETCORE_ENVIRONMENT` | `Development` (compose) | `Production` | — |
+| `EnableSwagger` | `false` (`appsettings.json`) | `true` (Application Settings) | — |
 | `WEBSITES_PORT` | — (`docker -p 8080:8080`) | `8080` | — |
 | `VITE_BACKEND_URL` | `.env` (gitignored) | — | `https://ics-tp3-43739-eveqhxemd5cmdee7.brazilsouth-01.azurewebsites.net` |
 
@@ -742,8 +745,8 @@ Ambos con email `admin@example.com` y rol `Admin`. La API crea este usuario al a
 | 7 | `docker run -e ASPNETCORE_ENVIRONMENT=Development ...` | La variable sobrescribe el valor por defecto de la imagen |
 | 8 | PR a `development`/`main` | Corren `backend-build`, `docker-build`, `frontend-build`, `frontend-lint` y `branch-name-check` |
 | 9 | Merge a `main` | `deploy.yml` termina en verde de punta a punta, incluido el *smoke test* |
-| 10 | `GET <url-azure>/healthcheck` | Responde 200 |
-| 11 | `<url-azure>/swagger` | **404**: el deploy corre con `Production` y Swagger solo se publica en `Development` (ver capítulo 6) |
+| 10 | `GET <url-azure>/healthcheck` | Responde 200 (incluye chequeo mínimo a la BD, ver §8.2) |
+| 11 | `<url-azure>/swagger` | 200 tras el deploy: el flag `EnableSwagger=true` habilita Swagger aunque el entorno sea `Production` (ver capítulo 6) |
 | 12 | Endpoints que leen la base (ej. `GET /api/products`) | Devuelven datos: la API está conectada a Azure SQL |
 
 Comandos útiles:
@@ -763,7 +766,7 @@ Logs en la nube: App Service → *Monitoring → Log stream*; GitHub → *Action
 | Problema | Causa | Solución |
 |---|---|---|
 | La API se cae al iniciar con una excepción en `Database.Migrate()` (`Program.cs`) | La API arrancó antes de que SQL Server estuviera listo (por ejemplo, al iniciar solo el contenedor `api` desde Docker Desktop, que **no respeta** `depends_on`) | Levantar todo el stack con `docker compose up -d`; el compose espera el `healthcheck` de SQL antes de iniciar la API |
-| `/swagger` responde 404 | Swagger solo se publica en entorno `Development`; en el deploy de Azure el entorno es `Production` | En local se usa `Development` (compose). En Azure queda pendiente exponer Swagger con un flag de configuración propio manteniendo `Production` (ver capítulo 6) |
+| `/swagger` respondía 404 en Azure | Swagger solo se publicaba en entorno `Development` y el deploy corre con `Production` | Se condicionó Swagger al flag `EnableSwagger` (`Program.cs`): se habilita en `Development` o cuando `EnableSwagger=true` (Application Settings de Azure; ver capítulo 6) |
 | Fallan los seeds dentro del contenedor | Linux distingue mayúsculas y minúsculas en rutas de archivos (Windows no) | Se corrigieron los nombres de los archivos de seeds para que coincidan exactamente con el código |
 | Build de Docker lento o con archivos de Windows | Se copiaban `bin/` y `obj/` al contexto | Se agregó `.dockerignore` |
 | `docker build` falla en CI por no encontrar el Dockerfile | Repositorio monorepo: el Dockerfile no está en la raíz | Indicar la ruta con `-f ICS_TPI2026_backend/Dockerfile` y el contexto `ICS_TPI2026_backend` |

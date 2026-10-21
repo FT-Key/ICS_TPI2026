@@ -475,6 +475,7 @@ Detalles y variables de entorno completas: `docs/TP3_Documentacion.md`, capitulo
 | CORS | Configurado para produccion |
 | Roles | "Admin", "User" seeded |
 | Autorizacion por roles | `[Authorize(Roles="Admin")]` |
+| Rate limiting en `/healthcheck` | 30 req/min por IP; el endpoint ademas chequea la BD (CanConnectAsync) |
 
 ---
 
