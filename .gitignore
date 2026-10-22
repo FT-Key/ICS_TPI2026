@@ -20,11 +20,10 @@ Thumbs.db
 # Playwright MCP
 .playwright-mcp/
 
-# OpenCode (local config, not shared)
-opencode.json
-.opencode/
+# OpenCode (opencode.json y .opencode/skills + tools se comparten en el repo;
+# node_modules/ ya esta cubierto arriba)
 agents.md
-skills/
+/skills/
 
 # Environment / secrets
 .env
