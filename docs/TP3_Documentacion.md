@@ -331,6 +331,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__Dsw2025Tpi=Server=sqlserver,1433;Database=Dsw2025Tpi;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;Encrypt=False;
+      - Jwt__Key=${JWT_KEY}
+      - DefaultAdminUser__Password=${ADMIN_PASSWORD}
     ports:
       - "8080:8080"
     depends_on:
@@ -709,10 +711,12 @@ Cadena completa: **Navegador → Vercel (frontend) → Azure App Service (API) �
 
 | Entorno | Usuario | Contraseña | Origen del valor |
 |---|---|---|---|
-| Local (dev) | `admin` | `SecurePassword123!` | `appsettings.json` → sección `DefaultAdminUser` |
+| Local (dev) | `admin` | la definida por cada integrante en `ADMIN_PASSWORD` (archivo `.env`, no versionado; ver `.env.example`) | `.env` → `docker-compose.yml` → `DefaultAdminUser__Password` |
 | Producción (Azure) | `admin` | `AdminTp3$2026!Xyz` | App Service → *Application Settings* → `DefaultAdminUser__Password` |
 
 Ambos con email `admin@example.com` y rol `Admin`. La API crea este usuario al arrancar si no existe (`Program.cs`, seeds).
+
+**Secretos fuera del repositorio.** `appsettings.json` ya no contiene `Jwt:Key` ni `DefaultAdminUser:Password` (tarjetas AT-01 y AT-02). En local se inyectan por variables de entorno desde un `.env` (junto al `docker-compose.yml`, ignorado por git) con `JWT_KEY` y `ADMIN_PASSWORD`; `.env.example` documenta las claves. Para `dotnet run` se usan *user-secrets*. Si falta alguno, la API no arranca. La contraseña debe cumplir las reglas de Identity (mayúscula, minúscula, número y carácter no alfanumérico).
 
 **Base de datos (solo local):** usuario `sa`, contraseña `YourStrong!Password123` (definidos en `docker-compose.yml` y `docs/DB_Config.md`). En Azure el acceso lo tiene la propia App Service vía la *connection string* de los Application Settings; no hay acceso directo desde una PC sin agregar la IP al firewall del SQL Server.
 
@@ -723,8 +727,10 @@ Ambos con email `admin@example.com` y rol `Admin`. La API crea este usuario al a
 | Variable | Local | Azure (deploy) | Vercel |
 |---|---|---|---|
 | `ConnectionStrings__Dsw2025Tpi` | compose: `Server=sqlserver,1433;...` | `Server=tcp:ics-sql-43739.database.windows.net,1433;...` (Application Settings) | — |
-| `Jwt__Key` · `Jwt__Issuer` · `Jwt__Audience` | `appsettings.json` | Application Settings (clave aleatoria distinta) | — |
-| `DefaultAdminUser__*` | `appsettings.json` (`SecurePassword123!`) | Application Settings (`AdminTp3$2026!Xyz`) | — |
+| `Jwt__Key` | `.env` (`JWT_KEY`) vía compose, o user-secrets | Application Settings (clave aleatoria distinta) | — |
+| `Jwt__Issuer` · `Jwt__Audience` | `appsettings.json` | Application Settings | — |
+| `DefaultAdminUser__Password` | `.env` (`ADMIN_PASSWORD`) vía compose, o user-secrets | Application Settings (`AdminTp3$2026!Xyz`) | — |
+| `DefaultAdminUser__UserName` · `__Email` · `__Role` | `appsettings.json` | Application Settings | — |
 | `ASPNETCORE_ENVIRONMENT` | `Development` (compose) | `Production` | — |
 | `EnableSwagger` | `false` (`appsettings.json`) | `true` (Application Settings) | — |
 | `WEBSITES_PORT` | — (`docker -p 8080:8080`) | `8080` | — |

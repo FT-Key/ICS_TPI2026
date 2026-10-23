@@ -104,7 +104,9 @@ public class Program
         });
         builder.Services.AddSingleton<JwtTokenService>();
         var jwtConfig = builder.Configuration.GetSection("Jwt");
-        var keyText = jwtConfig["Key"] ?? throw new ArgumentNullException("JWT Key");
+        var keyText = jwtConfig["Key"];
+        if (string.IsNullOrWhiteSpace(keyText))
+            throw new InvalidOperationException("Jwt:Key configuration is missing or empty");
         var key = Encoding.UTF8.GetBytes(keyText);
 
         builder.Services.AddAuthentication(options =>

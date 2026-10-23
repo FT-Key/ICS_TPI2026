@@ -25,6 +25,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__Dsw2025Tpi=Server=sqlserver,1433;Database=Dsw2025Tpi;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;Encrypt=False;
+      - Jwt__Key=${JWT_KEY}
+      - DefaultAdminUser__Password=${ADMIN_PASSWORD}
     ports:
       - "8080:8080"
     depends_on:

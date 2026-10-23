@@ -23,7 +23,9 @@ public class JwtTokenService
     public string GenerateToken(string username, string role, string userId)
     {
         var jwtConfig = _config.GetSection("Jwt");
-        var keyText = jwtConfig["Key"] ?? throw new ArgumentNullException("Jwt Key");
+        var keyText = jwtConfig["Key"];
+        if (string.IsNullOrWhiteSpace(keyText))
+            throw new InvalidOperationException("Jwt:Key configuration is missing or empty");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyText));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
