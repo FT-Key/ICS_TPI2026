@@ -289,15 +289,15 @@ Si escribieras el token directamente en el `.yml`, cualquiera con acceso al repo
 **Propósito:** Validar código en cada PR (Pull Request).
 
 **Se ejecuta cuando:**
-- Se abre un PR a `development` o `main`
-- Se hace push a una rama `feature/*`
+- Se abre o actualiza un PR a `development` o `main`
+- Se hace push a `development`
 
 **Qué hace:**
 1. **backend-build:** Compila el proyecto .NET (`dotnet build`)
 2. **docker-build:** Valida que el Dockerfile funcione (build sin push)
 3. **frontend-build:** Compila React/Vite (`npm run build`)
 4. **frontend-lint:** Ejecuta ESLint
-5. **branch-name-check:** Verifica que el nombre de rama siga el patrón `feature/*`, `fix/*`, `hotfix/*`
+5. **branch-name-check:** Verifica que el nombre de rama siga el regex exacto del CI: `^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/)`
 
 **NO despliega nada** — solo valida.
 
@@ -322,7 +322,7 @@ Si escribieras el token directamente en el `.yml`, cualquiera con acceso al repo
 
 | Característica | continuous-integration.yml | deploy.yml |
 |----------------|---------------------------|------------|
-| Trigger | PR + push a feature/* | Push a main |
+| Trigger | PR a main/development + push a development | Push a main |
 | Objetivo | Validar código | Desplegar a Azure |
 | Corre en PRs | ✅ Sí | ❌ No |
 | Despliega | ❌ No | ✅ Sí |
@@ -497,7 +497,7 @@ El profesor enseña un enfoque **simplificado**:
 
 ### Deploy de código (cada vez)
 ```
-1. Crear rama feature/*
+1. Crear rama con prefijo valido para el CI (`feature/*`, `feat/*`, `fix/*`, `hotfix/*`, `bugfix/*`, `release/*`, `docs/*`, `chore/*` o `refactor/*`)
 2. Commitear cambios
 3. Push a origin
 4. Abrir PR a development

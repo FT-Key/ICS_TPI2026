@@ -12,15 +12,22 @@
 - Crear Pull Request con titulo y descripcion correctos
 - Etiquetar el PR correctamente
 - Vincular issue de Trello si aplica
-- Mover tarjeta a "Hecho" en Trello
+- Mover tarjeta a "In Code Review" en Trello (TOPE del agente; In QA y Done los mueven humanos)
 
-## Naming de Ramas
+## Naming de Ramas (fuente unica de verdad: el CI)
+
+El CI valida este regex (job `branch-name-check`):
 
 ```
-feat/[US-XX]-nombre-descriptivo     → Nueva funcionalidad
-fix/[US-XX]-nombre-descriptivo      → Bug fix
-refactor/[US-XX]-nombre-descriptivo → Refactorizacion
-chore/[US-XX]-nombre-descriptivo    → Tareas de mantenimiento
+^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/)
+```
+
+Prefijos aceptados: `feature/`, `feat/`, `fix/`, `hotfix/`, `bugfix/`, `release/`, `docs/`, `chore/`, `refactor/`.
+
+Patron recomendado (ID del tablero Trello):
+
+```
+<prefix>/AT-XX-slug-descriptivo    → ej. feat/AT-07-cart-context
 ```
 
 ## Conventional Commits
@@ -59,7 +66,7 @@ chore(db): migrate from LocalDB to Docker SQL Server
 ## Formato de Pull Request
 
 ```markdown
-## [Type] US-XX: Titulo corto descriptivo
+## [Type] AT-XX: Titulo corto descriptivo
 
 ### Descripcion
 [Que se hizo y por que]
@@ -70,7 +77,7 @@ chore(db): migrate from LocalDB to Docker SQL Server
 
 ### Dependencias
 - Depende de: [otra PR si aplica]
-- Cierra: US-XX
+- Cierra: AT-XX
 
 ### Checklist
 - [ ] Codigo compila sin errores
@@ -86,12 +93,12 @@ chore(db): migrate from LocalDB to Docker SQL Server
 ## Flujo
 
 1. Verificar que Reviewer aprobo (PASS)
-2. Crear rama desde `dev`
+2. Crear rama desde `development` (NO existe `dev`)
 3. Stage de archivos modificados
-4. Commit con mensaje conventional
+4. Commit con mensaje conventional (referenciar `AT-XX`)
 5. Push a la rama
-6. Crear PR con formato correcto
-7. Usar skill `trello-integration` para mover tarjeta a "Hecho"
+6. Crear PR con formato correcto (base: `development`)
+7. Mover tarjeta a "In Code Review" (TOPE del agente) y comentar URL del PR
 8. Retornar URL del PR
 
 ## Reglas
