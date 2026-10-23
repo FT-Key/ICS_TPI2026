@@ -14,38 +14,36 @@
 
 ---
 
-## Historias de Usuario — Sprint Backlog (10 Hallazgos TP1)
+## Sprint 2 — Historias a realizar (fuente de verdad: tablero Trello)
 
-Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos detallados en `TP1_Resuelto.md`.
+**Compromiso del sprint:** estas **10 historias (AT-01 a AT-10)** son las que **se realizaran en este sprint**, segun el tablero Trello (fuente de verdad). **Las demas historias del plan (HU y US restantes) se pensaran a futuro**, quedan en el backlog y **NO** forman parte de este sprint.
 
-### Backend (4 hallazgos)
+El estado de cada historia se actualiza en la columna **Estado** a medida que avanza en el tablero:
 
-| ID | Historia | Hallazgo | Prioridad | Esfuerzo |
+`Backlog → To Do → In Progress → In Code Review → In QA → Done`
+
+| AT | Historia (titulo exacto del tablero) | Estado | Detalle en el plan | Esfuerzo |
 |---|---|---|---|---|
-| **US-17** | Como admin, quiero que el JWT secret no este en el codigo fuente | AT-01 | Critica | Bajo |
-| **US-18** | Como admin, quiero que las credenciales admin esten en variables de entorno | AT-02 | Critica | Bajo |
-| **US-24** | Como developer, quiero un Unit of Work que atomicice operaciones multi-tabla | AT-07 | Alta | Media |
-| **US-23** | Como developer, quiero un global exception handling middleware | AT-09 | Alta | Media |
+| **AT-01** | Corregir BOLA/IDOR en POST /api/orders | Backlog | US-27 (Fase 1) | Bajo |
+| **AT-02** | Extraer secrets de appsettings.json | ✅ Hecha — PR #19 (pendiente merge) | US-17 + US-18 (Fase 1) | Bajo |
+| **AT-03** | Eliminar N+1 queries al crear y cancelar ordenes | Backlog | *(sin US equivalente — detalle nuevo)* | Media |
+| **AT-04** | Suite de pruebas automatizadas con xUnit | Backlog | *(sin US equivalente — detalle nuevo)* | Media |
+| **AT-05** | Centralizar mapeo de Entidades a DTOs con DRY | Backlog | US-53 (Fase 4) | Media |
+| **AT-06** | Migrar JWT de localStorage a Cookies HttpOnly | Backlog | US-21 + US-35 (Fase 5) | Alta |
+| **AT-07** | CartContext para sincronizar estado global del carrito | Backlog | US-16 (Fase 6) | Media |
+| **AT-08** | Estandarizar contrato {data, error} en createOrder.js | Backlog | US-36 (Fase 2) | Bajo |
+| **AT-09** | Reemplazar window.dispatchEvent por estado React | Backlog | US-17F (Fase 6) | Media |
+| **AT-10** | Componente UserLayout para unificar Header y Modales | Backlog | US-59 (Fase 6) | Media |
 
-### Frontend (5 hallazgos)
+> **Advertencia de numeracion:** los IDs `AT-XX` de **este plan y del tablero Trello son la misma numeracion** (AT-01 = BOLA, AT-02 = secrets, etc.). La numeracion `AT-XX` de `TP1_Resuelto.md` es **otra cosa distinta** (alli AT-01 = JWT secret, AT-02 = credenciales admin). Al referenciar historias, usar siempre el ID del tablero Trello.
 
-| ID | Historia | Hallazgo | Prioridad | Esfuerzo |
-|---|---|---|---|---|
-| **US-21** | Como admin, quiero que el token se almacene en HttpOnly cookie | AT-04 | Alta | Alta |
-| **US-35** | Como admin, quiero que el backend soporte autenticacion por cookies | AT-28 | Alta | Media |
-| **US-16** | Como developer, quiero convertir useCart a Context para shared state | AT-16 | Alta | Media |
-| **US-59** | Como developer, quiero extraer AppShell para eliminar layout duplicado | AT-59 | Alta | Media |
-| **US-17F** | Como developer, quiero reemplazar window.dispatchEvent por Context | AT-17 | Media | Media |
-
-### Arquitectura (1 hallazgo)
-
-| ID | Historia | Hallazgo | Prioridad | Esfuerzo |
-|---|---|---|---|---|
-| **US-25** | Como developer, quiero corregir la dependencia circular Application->Data | AT-06 | Alta | Media |
+**Fuera de sprint (quedan en el backlog, no se hacen ahora):** `[HU-01] Sistema de Cupones de Descuento` y `[HU-02] Modulo de Resenas de Productos`.
 
 ---
 
-## Historias de Usuario — Hallazgos Adicionales (Clasificados por Prioridad)
+## Historias Adicionales — Backlog futuro (NO forman parte del Sprint 2)
+
+> El detalle `US-XX` de esta seccion se usa solo como **referencia tecnica** para las 10 historias `AT-XX` del Sprint 2 (ver mapeo en la tabla del sprint). El resto de historias **quedan pendientes para sprints futuros** y no se abordan en este sprint.
 
 ### Prioridad Critica
 
@@ -88,7 +86,7 @@ Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos de
 | **US-56** | CORS configurable por entorno | AT-46 | BE | Bajo |
 | **US-57** | Respuesta de registro JSON (no string plano) | AT-47 | BE | Bajo |
 | **US-58** | Endpoints GetAuthProducts eliminar o diferenciar | AT-39 | BE | Bajo |
-| **US-59** | Soft delete reversible (toggle enable/disable) | AT-40 | BE | Bajo |
+| **US-97** | Soft delete reversible (toggle enable/disable) | AT-40 | BE | Bajo |
 | **US-60** | Logger en OrdersManagementService | AT-41 | BE | Bajo |
 | **US-61** | TotalAmount computed persistir o calcular en DTO | AT-38 | BE | Bajo |
 | **US-62** |_health check con SQL Server | AT-31 | BE | Bajo |
@@ -392,69 +390,39 @@ Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos de
 
 ## Coordinacion con Trello
 
-### Tablero: "TPI Ingenieria y Calidad de Software"
+### Tablero: `UTN-ICS2026-4K2-[43739-53328-58143-53862-60016]-TP2`
+
+URL: https://trello.com/b/0abRcoI7/utn-ics2026-4k2-43739-53328-58143-53862-60016-tp2
+
+El tablero es la **fuente de verdad** de las historias del sprint (ver seccion "Sprint 2" arriba). Listas reales del tablero:
 
 ```
-| Backlog | Sprint 1 | En Progreso | Revision | Hecho |
-|---------|----------|-------------|----------|-------|
+| Product Backlog | Sprint 2 | To Do | In Progress | Blocked | In Code Review | In QA | Done |
 ```
 
-### Etiquetas
+Ademas existe la lista `Resources` (documentacion de referencia, no forma parte del flujo).
 
-| Etiqueta | Color | Epica |
+### Flujo de movimiento de tarjetas (regla importante)
+
+El agente (OpenCode) gestiona la tarjeta siguiendo el flujo, pero **solo puede moverla hasta `In Code Review`** (al abrir el PR). El avance posterior lo hacen **personas**:
+
+1. `Product Backlog` → `Sprint 2` (al planificar)
+2. `Sprint 2` → `To Do`
+3. `To Do` → `In Progress` (al arrancar la implementacion)
+4. `In Progress` → `In Code Review` (al abrir el PR — el agente deja la tarjeta aqui y comenta la URL del PR)
+5. `In Code Review` → `In QA` (cuando **otra persona** revisa y aprueba el PR)
+6. `In QA` → `Done` (cuando **otra persona** testea y aprueba)
+
+**El agente NUNCA mueve tarjetas a `In QA` ni a `Done`**: el review del PR y el testeo los valida un humano distinto del autor.
+
+### Etiquetas del tablero
+
+| Etiqueta | Color | Uso |
 |---|---|---|
-| Seguridad | Rojo | Epica 3 |
-| Arquitectura | Naranja | Epica 4 |
-| Backend | Azul | Epica 2 |
-| Frontend | Verde | Epica 1 |
-| Infraestructura | Morado | Epica 5 |
-| Bug | Amarillo | Bugs |
-
-### Sprint 1 (Sugerencia)
-
-| Historia | Esfuerzo |
-|---|---|
-| US-17, US-18 (JWT/Creds secret) | 1h |
-| US-27 (BOLA) | 0.5h |
-| US-26 (Bugs DbContext) | 0.5h |
-| US-32 (Unique Index) | 0.25h |
-| US-33 (FK Cascade) | 0.25h |
-| US-34 (Error 500) | 0.25h |
-| US-28 (Typo) | 0.25h |
-| US-29 (Seed Seguro) | 1h |
-| US-30 (Docker SQL) | 1h |
-| **Total** | **~4.5h** |
-
-### Sprint 2 (Sugerencia)
-
-| Historia | Esfuerzo |
-|---|---|
-| US-25 (Dependencia circular) | 1.5h |
-| US-24 (Unit of Work) | 2h |
-| US-23 (Exception middleware) | 1.5h |
-| US-44 (Paginacion BD) | 1.5h |
-| US-45 (Transaccion stock) | 1h |
-| US-46 (AsNoTracking) | 0.5h |
-| **Total** | **~8h** |
-
-### Sprint 3 (Sugerencia)
-
-| Historia | Esfuerzo |
-|---|---|
-| US-35 (Backend cookies) | 2h |
-| US-21 (Frontend cookies) | 3h |
-| US-47 a US-62 (Calidad backend) | 4h |
-| **Total** | **~9h** |
-
-### Sprint 4 (Sugerencia)
-
-| Historia | Esfuerzo |
-|---|---|
-| US-16 (Cart Context) | 1.5h |
-| US-59 (AppShell) | 2h |
-| US-17F (Dispatch -> Context) | 1h |
-| US-36 a US-43 (Bugs frontend) | 2h |
-| **Total** | **~6.5h** |
+| Deuda Tecnica | Amarillo | Historias AT (deuda/refactor) |
+| Infraestructura | Naranja | CI/CD, Docker, Azure, Git |
+| Backend | Amarillo | Cambios de backend |
+| WIP | Amarillo oscuro | Marca de trabajo en curso |
 
 ---
 
@@ -502,3 +470,32 @@ Estas son las 10 historias mas prioritarias, correspondientes a los hallazgos de
 | Fase 9 — Pre-Despliegue | 2.5h |
 | Fase 10 — Despliegue | 1h |
 | **Total** | **~35.5h** |
+
+---
+
+## Setup de agentes (OpenCode) — para replicar en otras IAs
+
+Este proyecto se gestiona con **OpenCode** y sus agentes/skills. El flujo completo (Trello → rama → plan → implementar → build → review → PR) esta definido en:
+
+- **Flujo/orquestador:** `.opencode/agents/workflow.md` (paso a paso obligatorio)
+- **Agentes especializados:** `.opencode/agents/*.md` (`plan`, `build`, `reviewer`, `github`, `developer`, etc.)
+- **Configuracion de agentes:** `opencode.json`
+- **Skills:** los skills cargables listados por OpenCode (se cargan con la tool `skill`)
+
+### Si trabajas con otra IA (Claude, Cursor, etc.) o desde otro entorno
+
+**Antes de arrancar cualquier tarea**, leé y replica este setup:
+
+1. `.opencode/agents/workflow.md` — el flujo completo y sus reglas.
+2. `.opencode/agents/*.md` — los roles de cada agente.
+3. `opencode.json` — que agentes existen y cual es el principal.
+4. Este `docs/PLAN.md` — las historias del sprint y su estado.
+
+Reglas que **deben respetarse igual** en cualquier IA/entorno:
+
+- **Naming de ramas:** usar exactamente la convencion del CI (ver `workflow.md`).
+- **Referenciar historias** por el ID del tablero Trello (`AT-XX`), en nombre de rama, commits y PR.
+- **Mover tarjetas en Trello hasta `In Code Review`** como maximo; `In QA` y `Done` las mueven humanos.
+- **Base de ramas:** `development` (no existe `dev`).
+
+No improvisar un flujo distinto al documentado.
