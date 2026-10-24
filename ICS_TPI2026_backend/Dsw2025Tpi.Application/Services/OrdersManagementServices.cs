@@ -100,18 +100,26 @@ namespace Dsw2025Tpi.Application.Services
                 customerId
             );
 
-            var orderItems = new List<OrderItem>();
+            // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden.
+            var productIds = request.OrderItems.Select(i => i.ProductId).Distinct().ToList();
+            var products = await _repository.GetFiltered<Product>(p => productIds.Contains(p.Id))
+                ?? Enumerable.Empty<Product>();
+            var productsById = products.ToDictionary(p => p.Id);
+
+            // Cantidad total pedida por producto (soporta el mismo producto repetido en varios items).
+            var requestedQuantities = request.OrderItems
+                .GroupBy(i => i.ProductId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+            var orderItems = new List<OrderItem>(request.OrderItems.Count);
 
             foreach (var item in request.OrderItems)
             {
-                var product = await _repository.GetById<Product>(item.ProductId)
-                    ?? throw new EntityNotFoundException($"Producto not found: {item.ProductId}");
+                if (!productsById.TryGetValue(item.ProductId, out var product))
+                    throw new EntityNotFoundException($"Producto not found: {item.ProductId}");
 
-                if (product.StockQuantity < item.Quantity)
+                if (product.StockQuantity < requestedQuantities[item.ProductId])
                     throw new InvalidOperationException($"Stock insuficiente: {product.Name}");
-
-                product.StockQuantity -= item.Quantity;
-                await _repository.Update(product);
 
                 var orderItem = new OrderItem(
                     item.Quantity,
@@ -120,12 +128,17 @@ namespace Dsw2025Tpi.Application.Services
                     product.Id
                 );
                 orderItems.Add(orderItem);
+            }
 
-
-
+            // El descuento se aplica en memoria sobre las entidades trackeadas...
+            foreach (var (productId, quantity) in requestedQuantities)
+            {
+                productsById[productId].StockQuantity -= quantity;
             }
 
             order.OrderItems = orderItems;
+
+            // ...y un unico SaveChangesAsync persiste la orden y el descuento de stock.
             await _repository.Add(order);
 
             return order.MapToResponse();
@@ -133,7 +146,7 @@ namespace Dsw2025Tpi.Application.Services
 
         public async Task<OrderModel.ResponseOrderModel> UpdateOrderStatus(Guid id, string newStatus)
         {
-            var order = await _repository.GetById<Order>(id, nameof(Order.OrderItems), "OrderItems.Product");
+            var order = await _repository.GetById<Order>(id, nameof(Order.OrderItems));
 
             if (order == null)
                 throw new EntityNotFoundException($"Order con el ID: {id} not found");
@@ -141,22 +154,32 @@ namespace Dsw2025Tpi.Application.Services
             if (!Enum.TryParse<OrderStatus>(newStatus, true, out var status) || int.TryParse(newStatus, out _))
                 throw new ArgumentException("El estado no es valido");
 
-            if (status == OrderStatus.CANCELLED)
+            if (status == OrderStatus.CANCELLED && order.OrderItems.Count > 0)
             {
-                foreach (var item in order.OrderItems)
+                // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden.
+                var productIds = order.OrderItems.Select(i => i.ProductId).Distinct().ToList();
+                var products = await _repository.GetFiltered<Product>(p => productIds.Contains(p.Id))
+                    ?? Enumerable.Empty<Product>();
+                var productsById = products.ToDictionary(p => p.Id);
+
+                var quantitiesToRestore = order.OrderItems
+                    .GroupBy(i => i.ProductId)
+                    .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+                // Restitucion de stock en memoria sobre las entidades trackeadas.
+                foreach (var (productId, quantity) in quantitiesToRestore)
                 {
-                    var product = await _repository.GetById<Product>(item.ProductId);
-                    if (product != null)
+                    if (productsById.TryGetValue(productId, out var product))
                     {
-                        product.StockQuantity += item.Quantity;
-                        await _repository.Update(product);
+                        product.StockQuantity += quantity;
                     }
                 }
             }
 
             order.Status = status;
 
-            await _repository.Update(order);
+            // Un unico SaveChangesAsync persiste el estado y la restitucion de stock.
+            await _repository.SaveChangesAsync();
 
             return order.MapToResponse();
         }

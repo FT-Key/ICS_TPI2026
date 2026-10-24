@@ -55,6 +55,11 @@ public class EfRepository : IRepository
         return entity;
     }
 
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        return _context.SaveChangesAsync(cancellationToken);
+    }
+
     private static IQueryable<T> Include<T>(IQueryable<T> query, string[] includes) where T : EntityBase
     {
         var includedQuery = query;

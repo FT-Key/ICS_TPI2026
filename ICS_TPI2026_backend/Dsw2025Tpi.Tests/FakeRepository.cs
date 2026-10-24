@@ -43,4 +43,7 @@ internal sealed class FakeRepository : IRepository
         _entities.Remove(entity);
         return Task.FromResult(entity);
     }
+
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(0);
 }
