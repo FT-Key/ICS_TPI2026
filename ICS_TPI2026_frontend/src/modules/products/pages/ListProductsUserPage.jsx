@@ -8,6 +8,7 @@ import LoginModal from '../../auth/components/LoginModal';
 import RegisterModal from '../../auth/components/RegisterModal';
 import Pagination from '../../shared/components/Pagination';
 import { usePagination } from '../../shared/hooks/usePagination';
+import useModal from '../../shared/hooks/useModal';
 import { getClientProducts } from '../services/listUser';
 import { useCart } from '../../cart/hooks/useCart';
 
@@ -31,21 +32,7 @@ function ListProductsUserPage() {
 
   const [openCartMenu, setOpenCartMenu] = useState(false);
 
-  const [openLoginModal, setOpenLoginModal] = useState(false);
-  const [openRegisterModal, setOpenRegisterModal] = useState(false);
-
-  useEffect(() => {
-    const openLogin = () => setOpenLoginModal(true);
-    const openRegister = () => setOpenRegisterModal(true);
-
-    window.addEventListener('open-login', openLogin);
-    window.addEventListener('open-register', openRegister);
-
-    return () => {
-      window.removeEventListener('open-login', openLogin);
-      window.removeEventListener('open-register', openRegister);
-    };
-  }, []);
+  const { openLogin, openRegister } = useModal();
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -83,8 +70,8 @@ function ListProductsUserPage() {
         totalItems={totalItems}
         onGoCart={() => navigate('/cart')}
         onGoProducts={null}
-        onOpenLogin={() => setOpenLoginModal(true)}
-        onOpenRegister={() => setOpenRegisterModal(true)}
+        onOpenLogin={openLogin}
+        onOpenRegister={openRegister}
         onOpenMobileMenu={() => setOpenCartMenu(true)}
         search={{
           value: searchTerm,
@@ -106,11 +93,11 @@ function ListProductsUserPage() {
         totalItems={totalItems}
         onOpenLogin={() => {
           setOpenCartMenu(false);
-          setOpenLoginModal(true);
+          openLogin();
         }}
         onOpenRegister={() => {
           setOpenCartMenu(false);
-          setOpenRegisterModal(true);
+          openRegister();
         }}
       />
 
@@ -240,15 +227,9 @@ function ListProductsUserPage() {
       />
 
       {/* MODALS */}
-      <LoginModal
-        isOpen={openLoginModal}
-        onClose={() => setOpenLoginModal(false)}
-      />
+      <LoginModal />
 
-      <RegisterModal
-        isOpen={openRegisterModal}
-        onClose={() => setOpenRegisterModal(false)}
-      />
+      <RegisterModal />
     </div>
   );
 }

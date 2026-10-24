@@ -1,17 +1,20 @@
 // src/auth/modals/RegisterModal.jsx
 import Modal from '../../shared/components/Modal';
 import RegisterForm from '../../auth/components/RegisterForm';
+import useModal from '../../shared/hooks/useModal';
 
-export default function RegisterModal({ isOpen, onClose }) {
+export default function RegisterModal() {
+  const { activeModal, closeModal, openLogin } = useModal();
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={activeModal === 'register'} onClose={closeModal}>
       <h2 className="text-2xl font-bold mb-4 text-center sticky top-0 bg-white z-10 py-2 inline-block w-auto mx-auto">
         Crear cuenta
       </h2>
 
       <div className="max-h-[70vh] overflow-y-auto px-1">
         <RegisterForm
-          onSuccess={onClose}
+          onSuccess={closeModal}
         />
       </div>
 
@@ -19,10 +22,7 @@ export default function RegisterModal({ isOpen, onClose }) {
         ¿Ya tienes cuenta?
         <button
           className="text-blue-600 ml-1 hover:underline"
-          onClick={() => {
-            onClose();
-            window.dispatchEvent(new Event('open-login'));
-          }}
+          onClick={openLogin}
         >
           Inicia sesión
         </button>
