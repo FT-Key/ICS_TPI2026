@@ -11,6 +11,7 @@
   <ItemGroup>
     <!-- Alinea con la version que ya referencia Dsw2025Tpi.Api (Microsoft.EntityFrameworkCore.Design 9.0.7). -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.7" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3">

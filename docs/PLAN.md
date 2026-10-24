@@ -26,7 +26,7 @@ El estado de cada historia se actualiza en la columna **Estado** a medida que av
 |---|---|---|---|---|
 | **AT-01** | Corregir BOLA/IDOR en POST /api/orders | ✅ Hecho (local) — pendiente: actualizar tarjeta en Trello (mover a In Code Review y agregar comentario con URL del PR) | US-27 (Fase 1) | Bajo |
 | **AT-02** | Extraer secrets de appsettings.json | ✅ Hecha — PR #19 (pendiente merge) | US-17 + US-18 (Fase 1) | Bajo |
-| **AT-03** | Eliminar N+1 queries al crear y cancelar ordenes | Backlog | *(sin US equivalente — detalle nuevo)* | Media |
+| **AT-03** | Eliminar N+1 queries al crear y cancelar ordenes | ✅ Hecha (local) — pendiente: abrir PR a `development` y actualizar tarjeta en Trello (mover a In Code Review + comentario con URL del PR) | *(sin US equivalente — detalle nuevo)* | Media |
 | **AT-04** | Suite de pruebas automatizadas con xUnit | Backlog | *(sin US equivalente — detalle nuevo)* | Media |
 | **AT-05** | Centralizar mapeo de Entidades a DTOs con DRY | ✅ Hecho (local) — pendiente: actualizar tarjeta en Trello (mover a In Code Review y agregar comentario con URL del PR) | US-53 (Fase 4) | Media |
 | **AT-06** | Migrar JWT de localStorage a Cookies HttpOnly | Backlog | US-21 + US-35 (Fase 5) | Alta |

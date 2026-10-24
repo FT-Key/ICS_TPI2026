@@ -12,4 +12,5 @@ public interface IRepository
     Task<T> Add<T>(T entity) where T : EntityBase;
     Task<T> Update<T>(T entity) where T : EntityBase;
     Task<T> Delete<T>(T entity) where T : EntityBase;
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
