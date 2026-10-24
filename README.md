@@ -398,6 +398,29 @@ dotnet run --project Dsw2025Tpi.Api
 
 Backend en `http://localhost:5142` (o en `http://localhost:8080` si se levanta con `docker compose up -d`). Swagger en `/swagger` (solo en entorno `Development`).
 
+### 2b. Backend con Docker (build y run de la imagen)
+
+Alternativa a `dotnet run`: construir y ejecutar la imagen de la API (`ICS_TPI2026_backend/Dockerfile`, multi-stage `sdk:8.0` -> `aspnet:8.0`, expone el puerto `8080`).
+
+```bash
+cd ICS_TPI2026_backend
+
+# Build
+docker build -t ics-api .
+
+# Run (la base del paso 1 debe estar levantada)
+docker run --rm -p 8080:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Development \
+  -e "ConnectionStrings__Dsw2025Tpi=Server=host.docker.internal,1433;Database=Dsw2025Tpi;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;Encrypt=False;" \
+  -e Jwt__Key=<clave-jwt> \
+  -e DefaultAdminUser__Password=<password-admin> \
+  ics-api
+```
+
+- `Jwt__Key` y `DefaultAdminUser__Password` no tienen valor por defecto: sin `Jwt__Key` la API no arranca. Los valores locales estan en `ICS_TPI2026_backend/.env` (ver `.env.example`).
+- `host.docker.internal` apunta al host, donde el contenedor SQL Server publica el puerto `1433`.
+- `docker compose up -d` hace lo mismo (build de la API + SQL Server) leyendo `JWT_KEY` y `ADMIN_PASSWORD` del `.env`.
+
 ### 3. Frontend
 
 ```bash
@@ -458,7 +481,7 @@ Los nombres van en minusculas y con guiones. Las ramas de trabajo siempre siguen
 
 | Entorno | Usuario admin | Contraseña | Base de datos |
 |---|---|---|---|
-| Local | `admin` | `SecurePassword123!` (en `appsettings.json`) | `sa` / `YourStrong!Password123` (en `docker-compose.yml`) |
+| Local | `admin` | variable `ADMIN_PASSWORD` de `ICS_TPI2026_backend/.env` (ver `.env.example`) | `sa` / `YourStrong!Password123` (en `docker-compose.yml`) |
 | Produccion (Azure) | `admin` | `AdminTp3$2026!Xyz` (en Application Settings) | via connection string de la App Service |
 
 Detalles y variables de entorno completas: `docs/TP3_Documentacion.md`, capitulo 8.
