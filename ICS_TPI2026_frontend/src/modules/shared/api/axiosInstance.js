@@ -5,30 +5,17 @@ const instance = axios.create({
   withCredentials: true,
 });
 
-instance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
 instance.interceptors.response.use(
   (config) => config,
   (error) => {
     const statusCode = error.response?.status ?? error.status;
 
     if (statusCode === 401) {
+      // AT-06: la cookie HttpOnly la administra el backend; solo limpiamos el perfil local.
+      localStorage.removeItem('user');
+
       if (window.location.pathname.includes('/admin/')) {
-        localStorage.clear();
         window.location.href = '/login';
-      } else {
-        localStorage.removeItem('token');
       }
     }
 

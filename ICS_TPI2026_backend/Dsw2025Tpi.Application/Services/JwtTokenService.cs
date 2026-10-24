@@ -20,7 +20,7 @@ public class JwtTokenService
         _config = config;
     }
 
-    public string GenerateToken(string username, string role, string userId)
+    public (string Token, DateTime ExpiresAt) GenerateToken(string username, string role, string userId)
     {
         var jwtConfig = _config.GetSection("Jwt");
         var keyText = jwtConfig["Key"];
@@ -28,6 +28,7 @@ public class JwtTokenService
             throw new InvalidOperationException("Jwt:Key configuration is missing or empty");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyText));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var expiresAt = DateTime.UtcNow.AddMinutes(double.Parse(jwtConfig["ExpireInMinutes"] ?? "60"));
 
         var claims = new[]
         {
@@ -43,10 +44,10 @@ public class JwtTokenService
             issuer: jwtConfig["Issuer"],
             audience: jwtConfig["Audience"],
             claims: claims,
-            expires: DateTime.Now.AddMinutes(double.Parse(jwtConfig["ExpireInMinutes"] ?? "60")),
+            expires: expiresAt,
             signingCredentials: creds
             );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 }
