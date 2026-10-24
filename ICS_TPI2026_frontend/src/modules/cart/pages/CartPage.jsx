@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Hooks
 import useAuth from '../../auth/hooks/useAuth';
+import useModal from '../../shared/hooks/useModal';
 import { useCart } from '../hooks/useCart';
 import { useDeleteQuantity } from '../../shared/hooks/useDeleteQuantity';
 import { useToggleMap } from '../../shared/hooks/useToggleMap';
@@ -22,6 +22,7 @@ function CartPage() {
   const navigate = useNavigate();
   const { cart, removeFromCart, clearCart, updateQuantity } = useCart();
   const { user, isAuthenticated } = useAuth();
+  const { openLogin, openRegister } = useModal();
   const isAdmin = user?.role === 'Admin'; // o el valor exacto que uses para admin
 
   const { get, increment, decrement, reset } = useDeleteQuantity();
@@ -32,29 +33,14 @@ function CartPage() {
     close,
   } = useToggleMap({
     cartMenu: false,
-    loginModal: false,
-    registerModal: false,
   });
 
   const totalItems = cart.reduce((acc, p) => acc + p.quantity, 0);
   const totalAmount = cart.reduce((acc, p) => acc + p.quantity * p.currentUnitPrice, 0);
 
-  useEffect(() => {
-    const openLogin = () => open('loginModal');
-    const openRegister = () => open('registerModal');
-
-    window.addEventListener('open-login', openLogin);
-    window.addEventListener('open-register', openRegister);
-
-    return () => {
-      window.removeEventListener('open-login', openLogin);
-      window.removeEventListener('open-register', openRegister);
-    };
-  }, [open]);
-
   const sendOrder = async () => {
     if (!isAuthenticated) {
-      open('loginModal');
+      openLogin();
 
       return;
     }
@@ -83,11 +69,6 @@ function CartPage() {
   };
 
   const handleCheckout = () => sendOrder();
-
-  const handleLoginSuccess = () => {
-    close('loginModal');
-    sendOrder();
-  };
 
   if (cart.length === 0) {
     return (
@@ -118,8 +99,8 @@ function CartPage() {
           search={{ value: '', onChange: () => {}, onSearch: () => {} }}
           onGoProducts={() => navigate('/')}
           onGoCart={null}
-          onOpenLogin={() => open('loginModal')}
-          onOpenRegister={() => open('registerModal')}
+          onOpenLogin={openLogin}
+          onOpenRegister={openRegister}
           onOpenMobileMenu={() => open('cartMenu')}
           totalItems={totalItems}
         />
@@ -138,11 +119,11 @@ function CartPage() {
         totalItems={totalItems}
         onOpenLogin={() => {
           close('cartMenu');
-          open('loginModal');
+          openLogin();
         }}
         onOpenRegister={() => {
           close('cartMenu');
-          open('registerModal');
+          openRegister();
         }}
       />
 
@@ -231,15 +212,8 @@ function CartPage() {
       </div>
 
       {/* Modals */}
-      <LoginModal
-        isOpen={modals.loginModal}
-        onClose={() => close('loginModal')}
-        onSuccess={handleLoginSuccess}
-      />
-      <RegisterModal
-        isOpen={modals.registerModal}
-        onClose={() => close('registerModal')}
-      />
+      <LoginModal />
+      <RegisterModal />
     </div>
   );
 }
