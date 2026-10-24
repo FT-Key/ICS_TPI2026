@@ -38,10 +38,19 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            
-            var Order = await _service.AddOrder(request);
-            
-            return CreatedAtAction(nameof(GetOrderById), new { id = Order.Id }, Order);
+            // BOLA Prevention: el CustomerId SIEMPRE se toma del claim "id" del JWT.
+            // El body ya no expone el campo, por lo que no puede imponerse otro cliente.
+            var userIdClaim = User.FindFirst("id");
+            if (userIdClaim == null
+                || !Guid.TryParse(userIdClaim.Value, out var authenticatedCustomerId)
+                || authenticatedCustomerId == Guid.Empty)
+            {
+                return Unauthorized("Token inválido: no se encontró el ID del usuario.");
+            }
+
+            var order = await _service.AddOrder(request, authenticatedCustomerId);
+
+            return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, order);
         }
         catch (ArgumentException ae)
         {

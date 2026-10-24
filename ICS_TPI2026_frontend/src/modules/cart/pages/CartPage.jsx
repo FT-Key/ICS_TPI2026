@@ -47,7 +47,6 @@ function CartPage() {
 
     try {
       const orderData = {
-        customerId: user.customerId,
         shippingAddress: 'Sin especificar',
         billingAddress: 'Sin especificar',
         notes: '',
