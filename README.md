@@ -246,7 +246,6 @@ erDiagram
 | Axios | 1.13.2 | Cliente HTTP |
 | React Hook Form | 7.65.0 | Formularios |
 | Tailwind CSS | 4.1.14 | Estilos utility-first |
-| jwt-decode | 4.0.0 | Decodificacion de JWT |
 
 **Despliegue:** Vercel — https://ics-tpi-2026.vercel.app (frontend SPA estatico)
 
@@ -333,7 +332,8 @@ Dsw2025Tpi.Data/           → Infraestructura (DbContext, Repositories)
 
 | Metodo | Ruta | Auth | Descripcion |
 |---|---|---|---|
-| POST | `/api/auth/login` | Anonimo | Login, retorna `{ token }` |
+| POST | `/api/auth/login` | Anonimo | Login: setea cookie HttpOnly y retorna el perfil |
+| POST | `/api/auth/logout` | Anonimo | Elimina la cookie de sesion |
 | POST | `/api/auth/register` | Anonimo | Registro de usuario |
 
 ### ProductsController (`/api/products`)

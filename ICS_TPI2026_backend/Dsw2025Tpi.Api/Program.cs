@@ -1,3 +1,4 @@
+using Dsw2025Tpi.Api.Authentication;
 using Dsw2025Tpi.Api.DependencyInjection;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Data;
@@ -126,6 +127,22 @@ public class Program
                 ValidAudience = jwtConfig["Audience"],
                 IssuerSigningKey = new SymmetricSecurityKey(key),
                 RoleClaimType = ClaimTypes.Role
+            };
+
+            // AT-06: el JWT viaja en una cookie HttpOnly. El header Authorization sigue funcionando.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var tokenFromCookie = AuthCookieDefaults.GetToken(context.Request);
+
+                    if (tokenFromCookie != null)
+                    {
+                        context.Token = tokenFromCookie;
+                    }
+
+                    return Task.CompletedTask;
+                }
             };
         });
 

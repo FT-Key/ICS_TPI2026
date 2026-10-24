@@ -695,7 +695,8 @@ Cadena completa: **Navegador → Vercel (frontend) → Azure App Service (API) �
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `POST` | `/api/auth/login` | — | Devuelve el token JWT |
+| `POST` | `/api/auth/login` | — | Setea el JWT en una cookie HttpOnly y devuelve el perfil |
+| `POST` | `/api/auth/logout` | — | Elimina la cookie de sesión |
 | `POST` | `/api/auth/register` | — | Registra un usuario |
 | `GET` | `/api/products` | — | Catálogo |
 | `GET` | `/api/products/{id}` | — | Detalle de producto |

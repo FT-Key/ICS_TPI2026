@@ -1,4 +1,5 @@
-﻿using Dsw2025Tpi.Application.Dtos;
+﻿using Dsw2025Tpi.Api.Authentication;
+using Dsw2025Tpi.Application.Dtos;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Domain.Entities;   // <--- Importación faltante
 using Dsw2025Tpi.Domain.Interfaces; // <--- Importación faltante
@@ -17,17 +18,20 @@ public class AuthenticateController : ControllerBase
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly JwtTokenService _jwtTokenService;
     private readonly IRepository _repository; // <--- Necesario para guardar el Customer
+    private readonly IWebHostEnvironment _environment;
 
     public AuthenticateController(
         UserManager<IdentityUser> userManager,
         SignInManager<IdentityUser> signInManager,
         JwtTokenService jwtTokenService,
-        IRepository repository) // <--- Inyectamos el repositorio
+        IRepository repository, // <--- Inyectamos el repositorio
+        IWebHostEnvironment environment)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _jwtTokenService = jwtTokenService;
         _repository = repository;
+        _environment = environment;
     }
 
     [HttpPost("login")]
@@ -59,9 +63,32 @@ public class AuthenticateController : ControllerBase
             return StatusCode(500, "El usuario no tiene asignado un rol.");
         }
 
-        // Generamos token incluyendo el ID para que el frontend lo use
-        var token = _jwtTokenService.GenerateToken(request.Username, role, user.Id);
-        return Ok(new { token });
+        // AT-06: el JWT viaja en una cookie HttpOnly; no se expone en el body.
+        var (token, expiresAt) = _jwtTokenService.GenerateToken(request.Username, role, user.Id);
+
+        Response.Cookies.Append(
+            AuthCookieDefaults.TokenCookieName,
+            token,
+            AuthCookieDefaults.CreateOptions(_environment.IsDevelopment(), expiresAt));
+
+        // El frontend solo recibe los datos no sensibles del perfil.
+        return Ok(new
+        {
+            username = user.UserName,
+            customerId = user.Id,
+            role
+        });
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete(
+            AuthCookieDefaults.TokenCookieName,
+            AuthCookieDefaults.CreateOptions(_environment.IsDevelopment()));
+
+        return NoContent();
     }
 
     [HttpPost("register")]
