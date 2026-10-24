@@ -1,5 +1,4 @@
 ﻿using Dsw2025Tpi.Application.Dtos;
-using System;
 
 namespace Dsw2025Tpi.Application.Validation
 {
@@ -9,9 +8,6 @@ namespace Dsw2025Tpi.Application.Validation
         {
             if (request == null)
                 throw new InvalidOperationException("La orden no puede ser vacia.");
-
-            if (request.CustomerId == Guid.Empty)
-                throw new InvalidOperationException("El ID cliente es obligatorio.");
 
             if (string.IsNullOrWhiteSpace(request.ShippingAddress) || request.ShippingAddress.Length > 256)
                 throw new InvalidOperationException("La direccion de compra es requerida.");

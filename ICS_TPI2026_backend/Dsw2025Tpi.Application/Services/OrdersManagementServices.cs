@@ -109,22 +109,23 @@ namespace Dsw2025Tpi.Application.Services
             return new OrderModel.ResponsePagination(paginatedItems, totalCount);
         }
 
-        public async Task<OrderModel.ResponseOrderModel> AddOrder(OrderModel.RequestOrderModel request)
+        // El customerId proviene del claim "id" del JWT, nunca del body (AT-01).
+        public async Task<OrderModel.ResponseOrderModel> AddOrder(OrderModel.RequestOrderModel request, Guid customerId)
         {
             OrderValidator.Validate(request);
 
             if (request.OrderItems == null || !request.OrderItems.Any())
                 throw new ArgumentException("La orden tiene que tener mas de un item.");
 
-            var customer = await _repository.GetById<Customer>(request.CustomerId);
+            var customer = await _repository.GetById<Customer>(customerId);
             if (customer == null)
-                throw new EntityNotFoundException($"Customer con ID {request.CustomerId} not found.");
+                throw new EntityNotFoundException($"Customer con ID {customerId} not found.");
 
             var order = new Order(
                 request.ShippingAddress,
                 request.BillingAddress,
                 request.Notes,
-                request.CustomerId
+                customerId
             );
 
             var orderItems = new List<OrderItem>();

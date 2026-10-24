@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dsw2025Tpi.Data", "Dsw2025T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dsw2025Tpi.Application", "Dsw2025Tpi.Application\Dsw2025Tpi.Application.csproj", "{AD606BCA-F693-45E2-A6BD-3C7FCBADE0D2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dsw2025Tpi.Tests", "Dsw2025Tpi.Tests\Dsw2025Tpi.Tests.csproj", "{53B7702D-6EAD-4DC7-A7C7-F282EDB5980A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{AD606BCA-F693-45E2-A6BD-3C7FCBADE0D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD606BCA-F693-45E2-A6BD-3C7FCBADE0D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD606BCA-F693-45E2-A6BD-3C7FCBADE0D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53B7702D-6EAD-4DC7-A7C7-F282EDB5980A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53B7702D-6EAD-4DC7-A7C7-F282EDB5980A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53B7702D-6EAD-4DC7-A7C7-F282EDB5980A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53B7702D-6EAD-4DC7-A7C7-F282EDB5980A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
