@@ -1,11 +1,6 @@
 import { instance } from '../../shared/api/axiosInstance';
+import { handleApiCall } from '../../shared/helpers/apiHandler';
 
 export const createOrder = async (orderData) => {
-  try {
-    const { data } = await instance.post('/api/orders', orderData);
-
-    return { data };
-  } catch (error) {
-    return { error };
-  }
+  return handleApiCall(() => instance.post('/api/orders', orderData));
 };
