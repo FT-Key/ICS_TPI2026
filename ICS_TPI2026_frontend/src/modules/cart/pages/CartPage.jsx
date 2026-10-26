@@ -45,26 +45,26 @@ function CartPage() {
       return;
     }
 
-    try {
-      const orderData = {
-        shippingAddress: 'Sin especificar',
-        billingAddress: 'Sin especificar',
-        notes: '',
-        orderItems: cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-      };
+    const orderData = {
+      shippingAddress: 'Sin especificar',
+      billingAddress: 'Sin especificar',
+      notes: '',
+      orderItems: cart.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+    };
 
-      const { error } = await createOrder(orderData);
+    const { error } = await createOrder(orderData);
 
-      if (error) throw error;
+    if (error) {
+      alert(error.message || 'Error al procesar la orden.');
 
-      clearCart();
-      navigate('/');
-    } catch {
-      alert('Error al procesar la orden.');
+      return;
     }
+
+    clearCart();
+    navigate('/');
   };
 
   const handleCheckout = () => sendOrder();

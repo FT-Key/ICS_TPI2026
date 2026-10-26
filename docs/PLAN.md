@@ -31,7 +31,7 @@ El estado de cada historia se actualiza en la columna **Estado** a medida que av
 | **AT-05** | Centralizar mapeo de Entidades a DTOs con DRY | ✅ Hecho (local) — pendiente: actualizar tarjeta en Trello (mover a In Code Review y agregar comentario con URL del PR) | US-53 (Fase 4) | Media |
 | **AT-06** | Migrar JWT de localStorage a Cookies HttpOnly | ✅ Hecho (local) — pendiente: actualizar tarjeta en Trello (mover a In Code Review y agregar comentario con URL del PR) | US-21 + US-35 (Fase 5) | Alta |
 | **AT-07** | CartContext para sincronizar estado global del carrito | Backlog | US-16 (Fase 6) | Media |
-| **AT-08** | Estandarizar contrato {data, error} en createOrder.js | Backlog | US-36 (Fase 2) | Bajo |
+| **AT-08** | Estandarizar contrato {data, error} en createOrder.js | ✅ Hecho (local) — pendiente: actualizar tarjeta en Trello (mover a In Code Review y agregar comentario con URL del PR) | US-36 (Fase 2) | Bajo |
 | **AT-09** | Reemplazar window.dispatchEvent por estado React | ✅ Hecho (local) — pendiente: actualizar tarjeta en Trello (mover a In Code Review y agregar comentario con URL del PR) | US-17F (Fase 6) | Media |
 | **AT-10** | Componente UserLayout para unificar Header y Modales | Backlog | US-59 (Fase 6) | Media |
 
