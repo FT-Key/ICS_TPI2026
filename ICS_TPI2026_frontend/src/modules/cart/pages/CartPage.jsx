@@ -1,39 +1,25 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 
 // Hooks
 import useAuth from '../../auth/hooks/useAuth';
 import useModal from '../../shared/hooks/useModal';
-import { useCart } from '../hooks/useCart';
 import { useDeleteQuantity } from '../../shared/hooks/useDeleteQuantity';
-import { useToggleMap } from '../../shared/hooks/useToggleMap';
 
 // Components
 import Button from '../../shared/components/Button';
 import Card from '../../shared/components/Card';
-import UserHeaderMenu from '../../shared/components/UserHeaderMenu';
-import MobileSideMenu from '../../shared/components/MobileSideMenu';
-import LoginModal from '../../auth/components/LoginModal';
-import RegisterModal from '../../auth/components/RegisterModal';
 
 // Services
 import { createOrder } from '../../orders/services/createOrder';
 
 function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, clearCart, updateQuantity } = useCart();
+  const { cart, removeFromCart, clearCart, updateQuantity } = useOutletContext();
   const { user, isAuthenticated } = useAuth();
-  const { openLogin, openRegister } = useModal();
+  const { openLogin } = useModal();
   const isAdmin = user?.role === 'Admin'; // o el valor exacto que uses para admin
 
   const { get, increment, decrement, reset } = useDeleteQuantity();
-
-  const {
-    state: modals,
-    open,
-    close,
-  } = useToggleMap({
-    cartMenu: false,
-  });
 
   const totalItems = cart.reduce((acc, p) => acc + p.quantity, 0);
   const totalAmount = cart.reduce((acc, p) => acc + p.quantity * p.currentUnitPrice, 0);
@@ -91,41 +77,6 @@ function CartPage() {
 
   return (
     <div className="container mx-auto p-4">
-      {/* Header */}
-      <Card>
-        <UserHeaderMenu
-          title="Carrito"
-          search={{ value: '', onChange: () => {}, onSearch: () => {} }}
-          onGoProducts={() => navigate('/')}
-          onGoCart={null}
-          onOpenLogin={openLogin}
-          onOpenRegister={openRegister}
-          onOpenMobileMenu={() => open('cartMenu')}
-          totalItems={totalItems}
-        />
-      </Card>
-
-      {/* Mobile menu */}
-      <MobileSideMenu
-        isOpen={modals.cartMenu}
-        title="Menú"
-        onClose={() => close('cartMenu')}
-        onGoProducts={() => {
-          close('cartMenu');
-          navigate('/');
-        }}
-        onGoCart={null}
-        totalItems={totalItems}
-        onOpenLogin={() => {
-          close('cartMenu');
-          openLogin();
-        }}
-        onOpenRegister={() => {
-          close('cartMenu');
-          openRegister();
-        }}
-      />
-
       {/* Cart Items + Order Summary */}
       <div className="mt-4 flex flex-col sm:flex-row gap-4">
         {/* Cart items */}
@@ -209,10 +160,6 @@ function CartPage() {
           </Button>
         </Card>
       </div>
-
-      {/* Modals */}
-      <LoginModal />
-      <RegisterModal />
     </div>
   );
 }
