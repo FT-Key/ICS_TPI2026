@@ -1,11 +1,11 @@
 import Button from './Button';
 import SearchBar from './SearchBar';
 import useAuth from '../../auth/hooks/useAuth';
+import { useCart } from '../../cart/hooks/useCart';
 
 export default function UserHeaderMenu({
   title = '',
   search = null,
-  totalItems = 0,
   onGoCart,
   onGoProducts,
   onOpenLogin,
@@ -13,6 +13,7 @@ export default function UserHeaderMenu({
   onOpenMobileMenu,
 }) {
   const { isAuthenticated, user, signout } = useAuth();
+  const { totalItems } = useCart();
 
   return (
     <div className="mb-3">

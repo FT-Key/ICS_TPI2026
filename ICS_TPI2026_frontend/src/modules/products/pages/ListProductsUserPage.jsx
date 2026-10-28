@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
 import Button from '../../shared/components/Button';
 import Card from '../../shared/components/Card';
 import Pagination from '../../shared/components/Pagination';
 import SearchBar from '../../shared/components/SearchBar';
 import { usePagination } from '../../shared/hooks/usePagination';
+import { useCart } from '../../cart/hooks/useCart';
 import { getClientProducts } from '../services/listUser';
 
 function ListProductsUserPage() {
@@ -19,7 +19,7 @@ function ListProductsUserPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const { cart, addToCart } = useOutletContext();
+  const { cart, addItem } = useCart();
   const [quantities, setQuantities] = useState({});
 
   const fetchProducts = useCallback(async () => {
@@ -91,17 +91,11 @@ function ListProductsUserPage() {
                 </p>
 
                 {/* Mostrar si ya está en el carrito */}
-                {(() => {
-                  const cartItem = cart.find((item) => item.sku === product.sku);
-
-                  if (!cartItem) return null;
-
-                  return (
-                    <p className="text-sm mt-1 text-green-600 font-medium">
-                        Ya tienes {cartItem.quantity} en el carrito.
-                    </p>
-                  );
-                })()}
+                {cartItem && (
+                  <p className="text-sm mt-1 text-green-600 font-medium">
+                    Ya tienes {cartItem.quantity} en el carrito.
+                  </p>
+                )}
 
                 <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 mt-3">
                   <div className="flex items-center gap-2">
@@ -142,7 +136,7 @@ function ListProductsUserPage() {
                   <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                     <Button
                       onClick={() => {
-                        addToCart(product, qty);
+                        addItem(product, qty);
                         setQuantities((prev) => ({
                           ...prev,
                           [product.sku]: 1,
