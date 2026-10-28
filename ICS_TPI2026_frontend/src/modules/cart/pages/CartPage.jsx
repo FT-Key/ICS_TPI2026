@@ -1,9 +1,10 @@
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Hooks
 import useAuth from '../../auth/hooks/useAuth';
 import useModal from '../../shared/hooks/useModal';
 import { useDeleteQuantity } from '../../shared/hooks/useDeleteQuantity';
+import { useCart } from '../hooks/useCart';
 
 // Components
 import Button from '../../shared/components/Button';
@@ -14,15 +15,19 @@ import { createOrder } from '../../orders/services/createOrder';
 
 function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, clearCart, updateQuantity } = useOutletContext();
+  const {
+    cart,
+    removeItem,
+    clearCart,
+    updateQuantity,
+    totalItems,
+    totalAmount,
+  } = useCart();
   const { user, isAuthenticated } = useAuth();
   const { openLogin } = useModal();
   const isAdmin = user?.role === 'Admin'; // o el valor exacto que uses para admin
 
   const { get, increment, decrement, reset } = useDeleteQuantity();
-
-  const totalItems = cart.reduce((acc, p) => acc + p.quantity, 0);
-  const totalAmount = cart.reduce((acc, p) => acc + p.quantity * p.currentUnitPrice, 0);
 
   const sendOrder = async () => {
     if (!isAuthenticated) {
@@ -122,7 +127,7 @@ function CartPage() {
                   <Button
                     className="text-sm px-4 py-2 sm:text-base font-semibold"
                     onClick={() => {
-                      if (delQty >= item.quantity) removeFromCart(item.sku);
+                      if (delQty >= item.quantity) removeItem(item.sku);
                       else updateQuantity(item.sku, item.quantity - delQty);
 
                       reset(item.sku);

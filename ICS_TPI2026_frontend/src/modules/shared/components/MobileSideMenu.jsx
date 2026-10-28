@@ -1,5 +1,6 @@
 import Button from './Button';
 import useAuth from '../../auth/hooks/useAuth';
+import { useCart } from '../../cart/hooks/useCart';
 
 export default function MobileSideMenu({
   isOpen,
@@ -9,9 +10,9 @@ export default function MobileSideMenu({
   onGoProducts,
   onOpenLogin,
   onOpenRegister,
-  totalItems = 0,
 }) {
   const { isAuthenticated, user, signout } = useAuth();
+  const { totalItems } = useCart();
 
   return (
     <div

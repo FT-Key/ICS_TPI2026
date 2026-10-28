@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './modules/auth/context/AuthProvider';
+import { CartProvider } from './modules/cart/context/CartContext';
 import { ModalProvider } from './modules/shared/context/ModalContext';
 import LoginPage from './modules/auth/pages/LoginPage';
 import RegisterPage from './modules/auth/pages/RegisterPage';
@@ -68,7 +69,9 @@ function App() {
   return (
     <AuthProvider>
       <ModalProvider>
-        <RouterProvider router={router} />
+        <CartProvider>
+          <RouterProvider router={router} />
+        </CartProvider>
       </ModalProvider>
     </AuthProvider>
   );
