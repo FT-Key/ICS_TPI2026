@@ -153,6 +153,17 @@ $setupScript = $setupScript.
     Replace('__LABEL__', $Label).
     Replace('__NAME__', $Name)
 
+$hasIcu = $false
+& wsl.exe -d $Distro -- bash -lc 'ldconfig -p | grep -q libicu' *> $null
+if ($LASTEXITCODE -eq 0) { $hasIcu = $true }
+if (-not $hasIcu) {
+    Write-WarnLine 'Falta libicu en WSL: el runner de GitHub lo necesita.'
+    Write-Host '  Instalalo con:' -ForegroundColor White
+    Write-Host "    wsl -d $Distro -u root -- bash -lc 'apt-get update && apt-get install -y libicu-dev libssl-dev'" -ForegroundColor Cyan
+    Write-Host '  Despues volve a ejecutar este script.' -ForegroundColor DarkGray
+    exit 1
+}
+
 Write-Step 'Registrando runner en WSL...'
 $encoded = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($setupScript))
 $output = (& wsl.exe -d $Distro -- bash -lc "echo $encoded | base64 -d | bash" 2>&1 | Out-String)

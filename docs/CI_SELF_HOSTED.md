@@ -140,6 +140,7 @@ En un repositorio público esos minutos son gratuitos.
 |---|---|
 | `El runner todavía no está instalado` | Ejecutá `.\scripts\runner\setup.ps1`. |
 | El runner figura `Offline` | WSL o la PC están apagados, o el proceso no arrancó. |
+| `El registro falla con "Libicu's dependencies is missing"` | Falta `libicu` en WSL. Ejecutá `wsl -d Ubuntu -u root -- bash -lc 'apt-get update && apt-get install -y libicu-dev libssl-dev'` y repetí el setup. |
 | Los jobs quedan en `Queued` | No hay runner online con el label `ics-wsl`. |
 | `No pude generar el token` | Tu usuario no es admin del repo o `gh` no está logueado. |
 | Docker no aparece | Habilitá la integración de Docker Desktop o instalá Docker Engine. |

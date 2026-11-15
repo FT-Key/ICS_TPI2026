@@ -88,7 +88,7 @@ function Get-RunnerState {
 }
 
 function Get-QueueInfo {
-    param([string]$Slug)
+    param([string]$Slug, [string]$Label)
 
     $queued = Invoke-GhApiJson -Path "repos/$Slug/actions/runs?status=queued&per_page=20"
     $running = Invoke-GhApiJson -Path "repos/$Slug/actions/runs?status=in_progress&per_page=20"
@@ -105,7 +105,9 @@ function Get-QueueInfo {
         $inspected++
         $jobs = Invoke-GhApiJson -Path "repos/$Slug/actions/runs/$($run.id)/jobs?per_page=100"
         if ($jobs) {
-            $pendingJobs += @($jobs.jobs | Where-Object { $_.status -ne 'completed' }).Count
+            $pendingJobs += @($jobs.jobs | Where-Object {
+                    $_.status -ne 'completed' -and (@($_.labels) -contains $Label)
+                }).Count
         }
     }
 
@@ -222,7 +224,7 @@ function Write-Dashboard {
 
     if ($Queue) {
         $truncated = if ($Queue.Truncated) { ' (parcial)' } else { '' }
-        Write-Host ("  Cola       {0} en cola  |  {1} en ejecucion  |  {2} jobs pendientes{3}" -f `
+        Write-Host ("  Cola       {0} en cola  |  {1} en ejecucion  |  {2} jobs de este runner{3}" -f `
                 $Queue.QueuedRuns, $Queue.RunningRuns, $Queue.PendingJobs, $truncated)
     } else {
         Write-Host '  Cola       sin datos (revisa permisos de gh)'
@@ -320,7 +322,7 @@ if ($Stop) {
 }
 
 $runnerState = Get-RunnerState -Slug $slug -Label $label
-$queue = Get-QueueInfo -Slug $slug
+$queue = Get-QueueInfo -Slug $slug -Label $label
 
 if ($StatusOnly) {
     Write-Host ''
@@ -333,7 +335,7 @@ if ($StatusOnly) {
         Write-WarnLine 'Estado      : no registrado o sin permisos para verlo'
     }
     if ($queue) {
-        Write-Host ("Cola        : {0} en cola | {1} en ejecucion | {2} jobs pendientes" -f `
+        Write-Host ("Cola        : {0} en cola | {1} en ejecucion | {2} jobs de este runner" -f `
                 $queue.QueuedRuns, $queue.RunningRuns, $queue.PendingJobs)
     }
     Write-Host ''
@@ -445,7 +447,7 @@ try {
         if (((Get-Date) - $lastPoll).TotalSeconds -ge $PollSeconds) {
             $lastPoll = Get-Date
             $runnerState = Get-RunnerState -Slug $slug -Label $label
-            $queue = Get-QueueInfo -Slug $slug
+            $queue = Get-QueueInfo -Slug $slug -Label $label
 
             Write-Dashboard `
                 -Slug $slug `
