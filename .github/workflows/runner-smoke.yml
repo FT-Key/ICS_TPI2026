@@ -1,0 +1,46 @@
+name: Runner Smoke Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, linux, x64, ics-wsl]
+    timeout-minutes: 15
+    steps:
+      - name: 1. Obtener el codigo
+        uses: actions/checkout@v4
+
+      - name: 2. Informacion del runner
+        run: |
+          echo "Runner: $RUNNER_NAME"
+          uname -a
+          echo "CPUs: $(nproc)"
+          free -h
+          df -h /
+
+      - name: 3. Verificar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 4. Version de .NET
+        run: dotnet --version
+
+      - name: 5. Verificar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 6. Version de Node
+        run: |
+          node -v
+          npm -v
+
+      - name: 7. Verificar Docker (opcional)
+        run: |
+          if command -v docker >/dev/null 2>&1; then
+            docker --version
+          else
+            echo "Docker no disponible en este runner (solo afecta docker-build)."
+          fi
