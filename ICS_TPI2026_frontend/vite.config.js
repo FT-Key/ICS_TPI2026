@@ -21,5 +21,10 @@ export default ({ mode }) => {
       react(),
       tailwindcss(),
     ],
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: './src/test/setup.js',
+    },
   });
 };
