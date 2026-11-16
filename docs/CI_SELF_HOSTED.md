@@ -10,14 +10,20 @@ deteniendo el runner manualmente.
 | WSL2 | OK, distro `Ubuntu` 26.04, `systemd` activo |
 | GitHub CLI | OK, autenticado como `FT-Key` |
 | Repositorio | `FT-Key/ICS_TPI2026` (público), rama base `development` |
-| Runner registrado | No |
-| .NET SDK en WSL | No instalado (no es obligatorio) |
-| Node en WSL | No instalado (no es obligatorio) |
+| Runner registrado | Sí, `ics-wsl-KEYBK` con el label `ics-wsl` |
+| .NET SDK en WSL | No instalado a nivel sistema; 8.0.428 en el tool cache del runner |
+| Node en WSL | No instalado a nivel sistema; `setup-node` lo instala en el tool cache |
 | Docker en WSL | No disponible (solo afecta `docker-build`) |
 | RAM / CPU | 5,9 GB / 4 núcleos |
 
-`actions/setup-dotnet` y `actions/setup-node` descargan las herramientas en cada
-job, por eso no hace falta instalarlas a mano dentro de WSL.
+`actions/setup-dotnet` y `actions/setup-node` descargan las herramientas en el
+tool cache del runner la primera vez y las reutilizan en los jobs siguientes, por
+eso no hace falta instalarlas a mano dentro de WSL.
+
+En runners self-hosted Linux, `actions/setup-dotnet` usa `/usr/share/dotnet`
+como instalación por defecto, que requiere root. El workflow fija
+`DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet` para instalar en el tool
+cache del runner, que siempre es escribible por el usuario `fr4nc`.
 
 ## Antes de empezar: dos advertencias
 
@@ -143,6 +149,7 @@ En un repositorio público esos minutos son gratuitos.
 | `El registro falla con "Libicu's dependencies is missing"` | Falta `libicu` en WSL. Ejecutá `wsl -d Ubuntu -u root -- bash -lc 'apt-get update && apt-get install -y libicu-dev libssl-dev'` y repetí el setup. |
 | Los jobs quedan en `Queued` | No hay runner online con el label `ics-wsl`. |
 | `No pude generar el token` | Tu usuario no es admin del repo o `gh` no está logueado. |
+| `actions/setup-dotnet` falla con `mkdir: Permission denied` | El action intenta escribir en `/usr/share/dotnet`. Fijá `DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet` en el step, como hace `continuous-integration.yml`. |
 | Docker no aparece | Habilitá la integración de Docker Desktop o instalá Docker Engine. |
 | La PC se queda sin RAM | Cerrá Docker Desktop y aplicaciones pesadas; el runner no necesita Docker salvo para ese job. |
 | Job cancelado tras muchas horas | GitHub cancela la cola a las 24 h. |
