@@ -122,9 +122,10 @@ function Get-QueueInfo {
 function Start-RunnerProcess {
     param([string]$DistroName, [string]$RunnerDir, [string]$LogPath)
 
+    $scriptPath = "$RunnerDir/run.sh"
     $arguments = @(
         '-d', $DistroName, '--',
-        'bash', '-lc', "cd '$RunnerDir' && exec ./run.sh"
+        'bash', $scriptPath
     )
 
     $errorLog = "$LogPath.err"
@@ -470,11 +471,13 @@ try {
         }
 
         if ($process.HasExited) {
+            $process.Refresh()
+            $exitCode = if ($null -ne $process.ExitCode) { $process.ExitCode } else { 'desconocido' }
             $tail = ''
             if (Test-Path $errorLog) {
                 $tail = (Get-Content $errorLog -Tail 5 -ErrorAction SilentlyContinue) -join ' | '
             }
-            Write-FailLine "El proceso del runner termino inesperadamente (codigo $($process.ExitCode)). $tail"
+            Write-FailLine "El proceso del runner termino inesperadamente (codigo $exitCode). $tail"
             $exitLoop = $true
         }
 
