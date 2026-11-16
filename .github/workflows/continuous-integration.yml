@@ -9,18 +9,24 @@ on:
 
 jobs:
   backend-build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ics-wsl]
     defaults:
       run:
         working-directory: ICS_TPI2026_backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
+        env:
+          # En runners self-hosted Linux el default del action es /usr/share/dotnet,
+          # que requiere root. El tool cache del runner siempre es escribible.
+          DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet
         with:
           dotnet-version: '8.0.x'
       - run: dotnet restore Dsw2025Tpi.sln
       - run: dotnet build Dsw2025Tpi.sln --no-restore -c Release /p:TreatWarningsAsErrors=true
 
+  # Se mantiene en un runner de GitHub hasta habilitar Docker dentro de WSL.
+  # En un repositorio publico estos minutos no se facturan.
   docker-build:
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +34,7 @@ jobs:
       - run: docker build -f ICS_TPI2026_backend/Dockerfile -t ics-api:ci ICS_TPI2026_backend
 
   frontend-build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ics-wsl]
     defaults:
       run:
         working-directory: ICS_TPI2026_frontend
@@ -43,7 +49,7 @@ jobs:
       - run: npm run build
 
   frontend-lint:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ics-wsl]
     defaults:
       run:
         working-directory: ICS_TPI2026_frontend
@@ -59,7 +65,7 @@ jobs:
 
   branch-name-check:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ics-wsl]
     steps:
       - run: |
           echo "Head ref: ${{ github.head_ref }}"
