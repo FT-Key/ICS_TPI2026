@@ -41,6 +41,16 @@ El estado de cada historia se actualiza en la columna **Estado** a medida que av
 
 ---
 
+## TP4 — Testing Automatizado
+
+| Tarjeta | Historia | Estado |
+|---|---|---|
+| **TP4-09** | Pruebas E2E con Postman/Newman — flujo de compra de punta a punta | ✅ Hecho (local) — `newman run` verde contra la API local (7 requests, 23 asserts); pendiente: push de `test/e2e-newman`, PR a `development`, corrida verde contra Azure y actualizar la tarjeta en Trello |
+
+La coleccion, el environment y los comandos estan en [`tests/e2e/README.md`](../tests/e2e/README.md).
+
+---
+
 ## Historias Adicionales — Backlog futuro (NO forman parte del Sprint 2)
 
 > El detalle `US-XX` de esta seccion se usa solo como **referencia tecnica** para las 10 historias `AT-XX` del Sprint 2 (ver mapeo en la tabla del sprint). El resto de historias **quedan pendientes para sprints futuros** y no se abordan en este sprint.
