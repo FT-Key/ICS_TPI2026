@@ -7,7 +7,7 @@
 - **Fecha:** 20 de noviembre de 2026
 - **Rama de este documento:** `test/informe-tp4`
 
-> **Estado del borrador.** Las secciones 8 (CI/CD y bloqueo del despliegue) y 9 (E2E) dependen de las tarjetas TP4-10 y TP4-09, que al momento de redactar no estaban terminadas. Están marcadas como **PENDIENTE** y no contienen evidencia inventada: se completan cuando esas tarjetas se integren. Los resultados de las secciones 4 a 7 corresponden a una ejecución real de la suite con las ramas de TP4-08 y de la corrección de stock integradas (ver 7.1).
+> **Estado del documento.** Las secciones 8 (CI/CD y bloqueo del despliegue) y 9 (E2E) describen lo implementado en TP4-10 (PR #42) y TP4-09 (PR #43). Los resultados de las secciones 4 a 7 corresponden a una ejecución real de la suite con TP4-08 y la corrección de stock integradas (ver 7.1). Las capturas del pipeline en rojo y del tablero en Done quedan pendientes de incorporar (se indican en la sección 8.4).
 
 ---
 
@@ -20,8 +20,8 @@
 5. [Pruebas de integración](#5-pruebas-de-integración)
 6. [Pruebas de regresión](#6-pruebas-de-regresión)
 7. [Evidencias de ejecución](#7-evidencias-de-ejecución)
-8. [Integración al CI/CD y bloqueo del despliegue (PENDIENTE)](#8-integración-al-cicd-y-bloqueo-del-despliegue-pendiente)
-9. [Pruebas End-to-End (opcional, PENDIENTE)](#9-pruebas-end-to-end-opcional-pendiente)
+8. [Integración al CI/CD y bloqueo del despliegue](#8-integración-al-cicd-y-bloqueo-del-despliegue)
+9. [Pruebas End-to-End (opcional)](#9-pruebas-end-to-end-opcional)
 10. [Tablero ágil (Sprint 3)](#10-tablero-ágil-sprint-3)
 11. [Hallazgos y defectos encontrados](#11-hallazgos-y-defectos-encontrados)
 12. [Conclusiones](#12-conclusiones)
@@ -43,7 +43,7 @@ El enunciado pide describir los casos de prueba diseñados, mostrar capturas de 
 |---|---|
 | Descripción de los casos de prueba diseñados | 4, 5 y 6 |
 | Capturas de ejecuciones exitosas | 7 |
-| Prueba del despliegue bloqueado ante fallos | 8 (pendiente de TP4-10) |
+| Prueba del despliegue bloqueado ante fallos | 8 |
 | Tablero ágil con el tránsito de las tarjetas | 10 |
 
 ### 1.3 Alcance funcional probado
@@ -66,9 +66,9 @@ El módulo de Órdenes y el catálogo de productos:
 | Unitarias | `Dsw2025Tpi.Tests.Unit` | Lógica de negocio de los servicios | Moq sobre `IRepository` y `ILogger`; sin base de datos | 36 |
 | Integración | `Dsw2025Tpi.Tests.Integration` | Controladores reales + persistencia + autenticación | `WebApplicationFactory<Program>` y SQLite en memoria | 50 |
 | Regresión | `Dsw2025Tpi.Tests` | Contratos y correcciones de sprints anteriores (AT-01, AT-03, AT-05, AT-06) y la corrección de TP4 | SQLite en memoria | 21 |
-| End-to-End | (opcional) | Flujo completo contra la API desplegada | — | ver sección 9 |
+| End-to-End | `tests/e2e` (Postman/Newman) | Flujo completo de compra contra la API real con SQL Server | API real + SQL Server 2022 | 7 requests / 23 asserts |
 
-Total: **107 pruebas automatizadas, 0 fallos** (ver sección 7).
+Total: **107 pruebas automatizadas, 0 fallos** (sección 7) más el flujo E2E (sección 9).
 
 ### 2.2 Criterios de diseño
 
@@ -278,32 +278,74 @@ La suite de integración corre en menos de 60 segundos y no depende de SQL Serve
 
 ---
 
-## 8. Integración al CI/CD y bloqueo del despliegue (PENDIENTE)
+## 8. Integración al CI/CD y bloqueo del despliegue
 
-> **PENDIENTE — tarjeta TP4-10 (rama `test/ci-cd-testing`).** Esta sección se completa cuando el workflow actualizado esté integrado.
+La suite quedó integrada al pipeline de GitHub Actions y el despliegue a Azure quedó condicionado a que todas las pruebas pasen.
 
-### 8.1 Estado de partida (verificado en el repositorio)
+### 8.1 Workflow de CI
 
-- `continuous-integration.yml` compila backend y frontend, valida el nombre de rama y construye la imagen Docker, pero **no ejecuta `dotnet test`**.
-- `deploy.yml` se dispara con push a `main` y **no depende** del resultado del CI.
-- El chequeo de nombres de rama ya admite el prefijo `test/` (PR #38).
+`.github/workflows/continuous-integration.yml` corre en cada push a `development` y `main` y en cada pull request hacia esas ramas:
 
-### 8.2 Requisito del enunciado
+| Job | Qué ejecuta | Runner |
+|---|---|---|
+| `backend-unit-tests` | `dotnet test --filter Category=Unit` sobre todos los proyectos de prueba | self-hosted `ics-wsl` |
+| `backend-integration-tests` | `dotnet test --filter Category=Integration` (WebApplicationFactory + SQLite) | self-hosted `ics-wsl` |
+| `backend-e2e-tests` | API real + SQL Server 2022 (service container) + Newman | `ubuntu-latest` |
+| `backend-build` | `dotnet build` con `TreatWarningsAsErrors` | self-hosted `ics-wsl` |
+| `docker-build` | build de la imagen de la API | `ubuntu-latest` |
+| `frontend-build` / `frontend-lint` | build y lint del frontend | self-hosted `ics-wsl` |
+| `branch-name-check` | prefijo de rama (incluye `test/`) | self-hosted `ics-wsl` |
 
-La etapa de construcción de Docker y despliegue al hosting debe tener una dependencia estricta del éxito de la etapa de pruebas (`needs:`); si una prueba falla, el pipeline aborta y notifica, tanto en pull request como en push.
+Características del pipeline:
 
-### 8.3 Evidencia a incorporar
+- `backend-build` y `docker-build` tienen `needs` de los tres jobs de prueba: si uno falla, no se construye ni se publica nada.
+- Cache de paquetes NuGet con `actions/cache@v4`, `timeout-minutes` por job y `concurrency` con cancelación de ejecuciones obsoletas.
+- Publicación de `.trx`, cobertura (Cobertura XML) y reportes JUnit con `actions/upload-artifact@v4`.
+- `scripts/ci/run-dotnet-tests.sh` ejecuta cada proyecto y **falla si el filtro no ejecutó ninguna prueba** (un `--filter` sin coincidencias devuelve exit 0).
+- `branch-name-check` acepta el prefijo `test/` exigido por el TP4 (PR #38).
 
-- [ ] Fragmento del workflow con el job de pruebas y la dependencia `needs:` del job de despliegue.
-- [ ] Captura de una ejecución exitosa del pipeline con los jobs de tests y de despliegue encadenados.
-- [ ] Captura de una ejecución **fallida** a propósito (prueba rota), con el job de despliegue omitido o cancelado.
-- [ ] Captura que demuestre el comportamiento en pull request y en push.
+### 8.2 Gate de despliegue
+
+`deploy.yml` dejó de dispararse con `push`: usa `workflow_run` del workflow de CI sobre `main` y el job `build-and-deploy` solo se ejecuta si:
+
+```yaml
+if: >
+  github.event_name == 'workflow_dispatch' ||
+  (github.event.workflow_run.conclusion == 'success' &&
+   github.event.workflow_run.event == 'push')
+```
+
+Además, checkoutea el `head_sha` que pasó las pruebas (no el último commit de la rama), escribe un `Step Summary` con el resultado del gate y notifica a Slack si existe el secret `SLACK_WEBHOOK_URL`. Si el CI falla, el job de deploy queda omitido.
+
+### 8.3 Protección de ramas
+
+`development` y `main` exigen los ocho checks del CI (`backend-unit-tests`, `backend-integration-tests`, `backend-e2e-tests`, `backend-build`, `docker-build`, `frontend-build`, `frontend-lint`, `branch-name-check`), rama al día antes del merge y `enforce_admins=true`. Un PR con pruebas en rojo no se puede mergear, ni siquiera con la cuenta dueña del repositorio.
+
+### 8.4 Evidencia
+
+- [x] Workflow con los jobs de prueba y la dependencia `needs` del build.
+- [x] Ejecución verde del CI del PR #42 (8 checks, artifacts de unit, integración y E2E) y del PR #44 tras corregir el cache.
+- [ ] Captura del pipeline en rojo bloqueando el merge (generar con un PR de prueba que rompa un test).
+- [ ] Captura del workflow de deploy omitido cuando el CI falla.
+- [ ] Captura del pipeline verde desplegando (release `development → main`).
 
 ---
 
-## 9. Pruebas End-to-End (opcional, PENDIENTE)
+## 9. Pruebas End-to-End (opcional)
 
-El enunciado marca esta capa como opcional. La tarjeta TP4-09 (Postman/Newman, flujo de compra de punta a punta: login, selección de producto y compra con verificación de stock) no está terminada. Si se completa antes de la entrega, se agregan aquí la colección, la ejecución con Newman y su captura; si no, el informe declara esta capa como fuera de alcance.
+Implementadas con Postman + Newman en `tests/e2e` (TP4-09):
+
+| Archivo | Uso |
+|---|---|
+| `TP4-E2E.postman_collection.json` | 7 requests: registro, login, catálogo, compra de 3 unidades, verificación de stock, stock insuficiente (400) y stock intacto |
+| `TP4.postman_environment.json` | Entorno local (`http://localhost:5080`) con `baseUrl` y `purchaseQuantity` |
+| `TP4.azure.postman_environment.json` | Entorno desplegado en Azure |
+
+- **23 asserts**, incluidos los esquemas JSON de cada respuesta, el estado `PENDING`, el total (`totatAmount = precio unitario × cantidad`) y el stock intacto tras el rechazo.
+- El JWT se captura de la cookie `HttpOnly` y se reenvía como `Authorization: Bearer`; la colección acepta también el contrato anterior (token en el body, `total`), por lo que corre contra el entorno desplegado sin actualizar.
+- La password del usuario efímero se genera en runtime: no se versiona ninguna credencial.
+- Job `backend-e2e-tests` en CI: SQL Server 2022 como service container, API levantada en `http://localhost:5080` y reportes JUnit/HTML publicados como artifact.
+- Evidencia: `npm run test:e2e` verde en CI (PR #43) y `npm run test:e2e:azure` verde contra Azure (7 requests, 23 asserts, 0 fallos).
 
 ---
 
@@ -314,19 +356,19 @@ Tránsito de las tarjetas de TP4 en el tablero de Trello al 20 de noviembre de 2
 | Tarjeta | Descripción | PR | Columna actual |
 |---|---|---|---|
 | TP4-01 | Infraestructura de testing | #31 (mergeado) | In QA |
-| TP4-02 | Ajustes de dominio y contrato | #32 (mergeado) | In QA |
-| TP4-03 | Unitarias — AddProduct | #33 (mergeado) | In QA |
-| TP4-04 | Unitarias — listado, búsqueda y paginación | #34 (mergeado) | In QA |
-| TP4-05 | Unitarias — AddOrder | #35 (mergeado) | In QA |
-| TP4-06 | Integración — arnés y JWT de prueba | #36 (mergeado) | In QA |
-| TP4-07 | Integración — endpoints de productos | #37 (mergeado) | In QA |
-| TP4-08 | Integración — endpoint de órdenes y stock | #39 (abierto) | In Code Review |
-| TP4-09 | E2E con Postman/Newman (opcional) | — | To Do |
-| TP4-10 | CI/CD y bloqueo del deploy | — | In Progress |
-| TP4-11 | Este informe | (PR de esta rama) | Sprint 3 |
-| TP4-12 | Runner self-hosted | — | Blocked |
+| TP4-02 | Ajustes de dominio y contrato | #32 (mergeado) | In Code Review |
+| TP4-03 | Unitarias — AddProduct | #33 (mergeado) | In Code Review |
+| TP4-04 | Unitarias — listado, búsqueda y paginación | #34 (mergeado) | In Code Review |
+| TP4-05 | Unitarias — AddOrder | #35 (mergeado) | In Code Review |
+| TP4-06 | Integración — arnés y JWT de prueba | #36 (mergeado) | In Code Review |
+| TP4-07 | Integración — endpoints de productos | #37 (mergeado) | In Code Review |
+| TP4-08 | Integración — endpoint de órdenes y stock | #39 (mergeado) | In Progress |
+| TP4-09 | E2E con Postman/Newman (opcional) | #43 (mergeado) | In Code Review |
+| TP4-10 | CI/CD y bloqueo del deploy | #42 y #44 (mergeados) | In Progress |
+| TP4-11 | Este informe | #41 (esta rama) | Sprint 3 |
+| TP4-12 | Runner self-hosted | #30 (mergeado) | Blocked |
 
-> **PENDIENTE:** el enunciado pide que el historial demuestre el tránsito de las tarjetas hasta **Done**. Las tarjetas pasan a Done después de la validación en QA; incorporar aquí una captura del tablero final cuando ocurra. Los checklists de Definition of Done de TP4-01 a TP4-07 están completos.
+> **PENDIENTE:** el enunciado pide que el historial demuestre el tránsito de las tarjetas hasta **Done**. Las tarjetas pasan a Done después de la validación en QA; incorporar aquí una captura del tablero final cuando ocurra.
 
 ---
 
@@ -355,7 +397,9 @@ Las pruebas de integración permitieron detectar y documentar comportamientos qu
 
 - Se implementó una suite de **107 pruebas automatizadas** repartidas en tres proyectos, todas verdes, que corre en local en pocos segundos y sin SQL Server.
 - Las pruebas de integración comprueban el efecto real sobre la base (filas, stock y rollback), no solo los códigos HTTP, y ya detectaron un defecto concreto que quedó corregido y cubierto por una prueba de regresión.
-- Falta cerrar el objetivo central del TP: que un fallo de pruebas **bloquee el despliegue** (sección 8). Hasta que TP4-10 no esté integrada, la suite existe pero el pipeline todavía no la exige.
+- La suite quedó integrada a GitHub Actions: el CI ejecuta unitarias, integración y E2E, y el despliegue a Azure solo corre si el CI terminó en `success` sobre `main`. `development` y `main` exigen los ocho checks para mergear.
+- Se agregó el flujo E2E con Postman/Newman (7 requests, 23 asserts), verde en local, en CI y contra el entorno desplegado en Azure.
+- Queda pendiente para la entrega incorporar las capturas del pipeline en rojo bloqueando el merge y del tablero con las tarjetas en Done.
 
 ---
 
@@ -378,7 +422,19 @@ dotnet test Dsw2025Tpi.sln -c Release --filter Category=Integration
 dotnet test Dsw2025Tpi.Tests.Integration -c Release --filter "FullyQualifiedName~Orders"
 ```
 
-### 13.2 Archivos principales
+### 13.2 Comandos E2E (desde `tests/e2e/`)
+
+```bash
+npm ci
+
+# Contra la API local en http://localhost:5080
+npm run test:e2e
+
+# Contra el entorno desplegado en Azure
+npm run test:e2e:azure
+```
+
+### 13.3 Archivos principales
 
 | Ruta | Contenido |
 |---|---|
@@ -388,4 +444,9 @@ dotnet test Dsw2025Tpi.Tests.Integration -c Release --filter "FullyQualifiedName
 | `Dsw2025Tpi.Tests.Integration/Orders/` | Integración de órdenes y stock |
 | `Dsw2025Tpi.Tests/` | Regresión de sprints anteriores |
 | `TESTING.md` | Guía de ejecución de la suite |
+| `tests/e2e/` | Colección Postman/Newman, environments y scripts del flujo de compra |
+| `.github/workflows/continuous-integration.yml` | Jobs de unit, integración, E2E, build y lint |
+| `.github/workflows/deploy.yml` | Gate de despliegue con `workflow_run` |
+| `scripts/ci/run-dotnet-tests.sh` | Ejecución por categoría con guard de cero pruebas |
+| `docs/CALIDAD_CI_CD.md` | Flujo de calidad, checks obligatorios y comandos |
 | `docs/img/tp4/` | Capturas de este informe |
