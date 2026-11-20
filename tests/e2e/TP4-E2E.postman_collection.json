@@ -1,0 +1,671 @@
+{
+  "info": {
+    "_postman_id": "7d0f12a4-9e3b-4c5a-8f61-2b9d7c4e1a08",
+    "name": "TP4-09 E2E - Flujo de compra",
+    "description": "Flujo End-to-End del TP4: registro y login de un usuario de prueba, seleccion de un producto con stock, compra de 3 unidades, verificacion del stock descontado y escenario negativo sin stock (400).\n\nCompatible con el contrato actual (JWT en cookie HttpOnly, totalItems) y con el entorno desplegado mientras se actualiza (JWT en body, total, customerId en el body).\n\nEjecutar con: npm run test:e2e",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01 - Autenticacion",
+      "description": "Alta de un usuario efimero y login para obtener el JWT en {{token}}.",
+      "item": [
+        {
+          "name": "Registrar usuario E2E (POST /api/auth/register)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Usuario unico por corrida: la coleccion se puede repetir sin colisiones.",
+                  "const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);",
+                  "pm.collectionVariables.set('testUsername', 'e2e_' + suffix);",
+                  "pm.collectionVariables.set('testEmail', 'e2e_' + suffix + '@example.com');",
+                  "",
+                  "// Sin credenciales versionadas: si testUserPassword viene vacio se genera una al azar por corrida.",
+                  "// Se arma con un caracter aleatorio de cada clase que exige Identity",
+                  "// (mayuscula, minuscula, digito y simbolo) mas un GUID aleatorio.",
+                  "function pick(chars) {",
+                  "  return chars.charAt(Math.floor(Math.random() * chars.length));",
+                  "}",
+                  "function letters(from, count) {",
+                  "  return Array.from({ length: count }, function (_, i) { return String.fromCharCode(from + i); }).join('');",
+                  "}",
+                  "if (!pm.environment.get('testUserPassword')) {",
+                  "  const parts = [",
+                  "    pick(letters(65, 26)),",
+                  "    pick(letters(97, 26)),",
+                  "    pick(letters(48, 10)),",
+                  "    pick(letters(35, 4)), // # $ % & (sin comillas ni barras: el valor va dentro de un body JSON)",
+                  "    pm.variables.replaceIn('{{$guid}}').replace(/-/g, '')",
+                  "  ];",
+                  "  pm.environment.set('testUserPassword', parts.join(''));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registro: status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Registro: usuario creado', function () {",
+                  "  pm.expect(pm.response.text()).to.include('Usuario registrado exitosamente');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Crea un usuario unico por corrida. Es necesario porque el admin seed no tiene fila espejo en Customers y la orden se crea a nombre del cliente autenticado.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"password\": \"{{testUserPassword}}\",\n  \"email\": \"{{testEmail}}\",\n  \"name\": \"Usuario E2E TP4-09\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login y captura del token (POST /api/auth/login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login: status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// El contrato actual (AT-06) devuelve el perfil y entrega el JWT en cookie HttpOnly.",
+                  "// Los despliegues anteriores devuelven { token } en el body; el esquema acepta ambos.",
+                  "const loginSchema = {",
+                  "  type: 'object',",
+                  "  anyOf: [",
+                  "    { required: ['token'] },",
+                  "    { required: ['username', 'customerId', 'role'] }",
+                  "  ],",
+                  "  properties: {",
+                  "    token: { type: 'string' },",
+                  "    username: { type: 'string' },",
+                  "    customerId: { type: 'string' },",
+                  "    role: { type: 'string' }",
+                  "  }",
+                  "};",
+                  "",
+                  "pm.test('Login: esquema JSON', function () {",
+                  "  pm.response.to.have.jsonSchema(loginSchema);",
+                  "});",
+                  "",
+                  "function base64UrlDecode(value) {",
+                  "  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');",
+                  "  if (typeof Buffer !== 'undefined') {",
+                  "    return Buffer.from(normalized, 'base64').toString('utf8');",
+                  "  }",
+                  "  const binary = atob(normalized);",
+                  "  let escaped = '';",
+                  "  for (let i = 0; i < binary.length; i++) {",
+                  "    escaped += '%' + ('00' + binary.charCodeAt(i).toString(16)).slice(-2);",
+                  "  }",
+                  "  return decodeURIComponent(escaped);",
+                  "}",
+                  "",
+                  "function decodeJwt(value) {",
+                  "  try {",
+                  "    const payload = value.split('.')[1];",
+                  "    if (!payload) return {};",
+                  "    return JSON.parse(base64UrlDecode(payload));",
+                  "  } catch (e) {",
+                  "    return {};",
+                  "  }",
+                  "}",
+                  "",
+                  "let body = {};",
+                  "try {",
+                  "  body = pm.response.json();",
+                  "} catch (e) {",
+                  "  body = {};",
+                  "}",
+                  "",
+                  "let token = typeof body.token === 'string' ? body.token : '';",
+                  "if (!token) {",
+                  "  token = pm.cookies.get('token') || '';",
+                  "}",
+                  "if (!token) {",
+                  "  // Fallback por si el cookie jar no acepta la cookie Secure sobre HTTP local.",
+                  "  const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                  "  const match = /(?:^|,\\s*)token=([^;]+)/.exec(setCookie);",
+                  "  token = match ? decodeURIComponent(match[1]) : '';",
+                  "}",
+                  "",
+                  "pm.collectionVariables.set('token', token);",
+                  "",
+                  "pm.test('Login: token capturado en variable de coleccion', function () {",
+                  "  pm.expect(token, 'token JWT').to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "const claims = decodeJwt(token);",
+                  "const role = body.role || claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];",
+                  "const customerId = body.customerId || claims.id || '';",
+                  "",
+                  "pm.collectionVariables.set('customerId', customerId);",
+                  "",
+                  "pm.test('Login: rol User', function () {",
+                  "  pm.expect(role).to.eql('User');",
+                  "});",
+                  "",
+                  "pm.test('Login: customerId disponible para la orden', function () {",
+                  "  pm.expect(customerId).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda el JWT en la variable de coleccion {{token}}. En el contrato actual viene en la cookie HttpOnly \"token\"; en despliegues anteriores viene en el body. Tambien resuelve customerId desde el claim \"id\" para el body de la orden.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"password\": \"{{testUserPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Catalogo",
+      "description": "Seleccion del producto a comprar.",
+      "item": [
+        {
+          "name": "Seleccionar producto con stock (GET /api/products)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Catalogo: status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const productItemSchema = {",
+                  "  type: 'object',",
+                  "  required: ['id', 'sku', 'internalCode', 'name', 'description', 'currentUnitPrice', 'stockQuantity', 'isActive'],",
+                  "  properties: {",
+                  "    id: { type: 'string' },",
+                  "    sku: { type: ['string', 'null'] },",
+                  "    internalCode: { type: ['string', 'null'] },",
+                  "    name: { type: ['string', 'null'] },",
+                  "    description: { type: ['string', 'null'] },",
+                  "    currentUnitPrice: { type: ['number', 'null'] },",
+                  "    stockQuantity: { type: ['integer', 'null'] },",
+                  "    isActive: { type: 'boolean' }",
+                  "  }",
+                  "};",
+                  "",
+                  "// TP4-02 renombro \"total\" a \"totalItems\". El anyOf permite correr la misma",
+                  "// coleccion contra el entorno desplegado mientras termina de actualizarse.",
+                  "const catalogSchema = {",
+                  "  type: 'object',",
+                  "  required: ['productItems'],",
+                  "  anyOf: [",
+                  "    { required: ['totalItems'] },",
+                  "    { required: ['total'] }",
+                  "  ],",
+                  "  properties: {",
+                  "    productItems: { type: 'array', items: productItemSchema },",
+                  "    totalItems: { type: 'integer' },",
+                  "    total: { type: 'integer' }",
+                  "  }",
+                  "};",
+                  "",
+                  "pm.test('Catalogo: esquema JSON', function () {",
+                  "  pm.response.to.have.jsonSchema(catalogSchema);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const quantity = Number(pm.environment.get('purchaseQuantity'));",
+                  "const product = (body.productItems || []).find(function (item) {",
+                  "  return item.isActive === true && item.stockQuantity >= quantity;",
+                  "});",
+                  "",
+                  "pm.test('Catalogo: producto activo con stock suficiente', function () {",
+                  "  pm.expect(product, 'producto activo con stock >= ' + quantity).to.be.an('object');",
+                  "});",
+                  "",
+                  "const total = body.totalItems !== undefined ? body.totalItems : body.total;",
+                  "pm.test('Catalogo: total informado', function () {",
+                  "  pm.expect(total).to.be.a('number');",
+                  "});",
+                  "",
+                  "if (product) {",
+                  "  pm.collectionVariables.set('productId', product.id);",
+                  "  pm.collectionVariables.set('productName', product.name || product.sku || product.id);",
+                  "  pm.collectionVariables.set('initialStock', String(product.stockQuantity));",
+                  "  pm.collectionVariables.set('unitPrice', String(product.currentUnitPrice));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products?pageNumber=1&pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "pageNumber",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "Recorre el catalogo publico (solo activos) y guarda el primer producto con stock >= purchaseQuantity en {{productId}}, junto con {{initialStock}} y {{unitPrice}}."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Compra",
+      "description": "Creacion de la orden de punta a punta.",
+      "item": [
+        {
+          "name": "Crear orden de 3 unidades (POST /api/orders)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Orden: status 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const orderItemSchema = {",
+                  "  type: 'object',",
+                  "  required: ['id', 'quantity', 'unitPrice', 'orderId', 'productId', 'subTotal'],",
+                  "  properties: {",
+                  "    id: { type: 'string' },",
+                  "    quantity: { type: 'integer' },",
+                  "    unitPrice: { type: 'number' },",
+                  "    orderId: { type: 'string' },",
+                  "    productId: { type: 'string' },",
+                  "    subTotal: { type: 'number' }",
+                  "  }",
+                  "};",
+                  "",
+                  "const orderSchema = {",
+                  "  type: 'object',",
+                  "  required: ['id', 'date', 'shippingAddress', 'billingAddress', 'customerId', 'status', 'totatAmount', 'orderItems'],",
+                  "  properties: {",
+                  "    id: { type: 'string' },",
+                  "    date: { type: 'string' },",
+                  "    shippingAddress: { type: ['string', 'null'] },",
+                  "    billingAddress: { type: ['string', 'null'] },",
+                  "    notes: { type: ['string', 'null'] },",
+                  "    customerId: { type: 'string' },",
+                  "    customerName: { type: ['string', 'null'] },",
+                  "    status: { type: 'string' },",
+                  "    // El nombre \"totatAmount\" es el contrato vigente (typo conocido, US-28).",
+                  "    totatAmount: { type: 'number' },",
+                  "    orderItems: { type: 'array', minItems: 1, items: orderItemSchema }",
+                  "  }",
+                  "};",
+                  "",
+                  "pm.test('Orden: esquema JSON', function () {",
+                  "  pm.response.to.have.jsonSchema(orderSchema);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const quantity = Number(pm.environment.get('purchaseQuantity'));",
+                  "const productId = pm.collectionVariables.get('productId');",
+                  "const unitPrice = Number(pm.collectionVariables.get('unitPrice'));",
+                  "",
+                  "pm.collectionVariables.set('orderId', body.id);",
+                  "",
+                  "pm.test('Orden: estado PENDING', function () {",
+                  "  pm.expect(body.status).to.eql('PENDING');",
+                  "});",
+                  "",
+                  "pm.test('Orden: contiene el producto elegido con la cantidad pedida', function () {",
+                  "  pm.expect(body.orderItems).to.be.an('array').with.lengthOf(1);",
+                  "  pm.expect(body.orderItems[0].productId).to.eql(productId);",
+                  "  pm.expect(body.orderItems[0].quantity).to.eql(quantity);",
+                  "});",
+                  "",
+                  "pm.test('Orden: total = precio unitario x cantidad', function () {",
+                  "  pm.expect(body.totatAmount).to.be.closeTo(unitPrice * quantity, 0.01);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Compra {{purchaseQuantity}} unidades del producto elegido. El customerId se envia por compatibilidad con despliegues anteriores; el contrato actual (AT-01) lo ignora y usa el claim \"id\" del JWT.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"shippingAddress\": \"Av. Siempre Viva 742, Cordoba\",\n  \"billingAddress\": \"Av. Siempre Viva 742, Cordoba\",\n  \"notes\": \"Orden E2E TP4-09\",\n  \"orderItems\": [\n    {\n      \"quantity\": {{purchaseQuantity}},\n      \"productId\": \"{{productId}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Verificacion",
+      "description": "El stock debe reflejar la compra.",
+      "item": [
+        {
+          "name": "Verificar stock descontado (GET /api/products/{id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Stock final: status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const productSchema = {",
+                  "  type: 'object',",
+                  "  required: ['id', 'sku', 'internalCode', 'name', 'description', 'currentUnitPrice', 'stockQuantity', 'isActive'],",
+                  "  properties: {",
+                  "    id: { type: 'string' },",
+                  "    sku: { type: ['string', 'null'] },",
+                  "    internalCode: { type: ['string', 'null'] },",
+                  "    name: { type: ['string', 'null'] },",
+                  "    description: { type: ['string', 'null'] },",
+                  "    currentUnitPrice: { type: ['number', 'null'] },",
+                  "    stockQuantity: { type: 'integer' },",
+                  "    isActive: { type: 'boolean' }",
+                  "  }",
+                  "};",
+                  "",
+                  "pm.test('Stock final: esquema JSON', function () {",
+                  "  pm.response.to.have.jsonSchema(productSchema);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const initialStock = Number(pm.collectionVariables.get('initialStock'));",
+                  "const quantity = Number(pm.environment.get('purchaseQuantity'));",
+                  "",
+                  "pm.test('Stock final: descontado tras la compra', function () {",
+                  "  pm.expect(body.stockQuantity).to.eql(initialStock - quantity);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('finalStock', String(body.stockQuantity));",
+                  "pm.collectionVariables.set('insufficientQuantity', String(body.stockQuantity + 1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Comprueba stock final = stock inicial - purchaseQuantity. Guarda {{finalStock}} e {{insufficientQuantity}} para el escenario negativo."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Escenario negativo",
+      "description": "La API debe rechazar una compra sin stock y no tocar el inventario.",
+      "item": [
+        {
+          "name": "Rechazar compra sin stock (POST /api/orders -> 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Stock insuficiente: status 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Stock insuficiente: mensaje explicativo', function () {",
+                  "  pm.expect(pm.response.text()).to.include('Stock insuficiente');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Pide una unidad mas que el stock disponible. Debe responder 400 con un mensaje que contenga \"Stock insuficiente\".",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"shippingAddress\": \"Av. Siempre Viva 742, Cordoba\",\n  \"billingAddress\": \"Av. Siempre Viva 742, Cordoba\",\n  \"notes\": \"Orden E2E TP4-09 - stock insuficiente\",\n  \"orderItems\": [\n    {\n      \"quantity\": {{insufficientQuantity}},\n      \"productId\": \"{{productId}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verificar stock intacto tras el rechazo (GET /api/products/{id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Stock tras rechazo: status 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const finalStock = Number(pm.collectionVariables.get('finalStock'));",
+                  "",
+                  "pm.test('Stock tras rechazo: intacto', function () {",
+                  "  pm.expect(body.stockQuantity).to.eql(finalStock);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "El intento rechazado no debe modificar el inventario."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "customerId",
+      "value": ""
+    },
+    {
+      "key": "testUsername",
+      "value": ""
+    },
+    {
+      "key": "testEmail",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productName",
+      "value": ""
+    },
+    {
+      "key": "initialStock",
+      "value": ""
+    },
+    {
+      "key": "unitPrice",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "finalStock",
+      "value": ""
+    },
+    {
+      "key": "insufficientQuantity",
+      "value": ""
+    }
+  ]
+}

@@ -295,6 +295,8 @@ ICS/
 │   ├── Dsw2025Tpi.Domain/         → Modelo de dominio
 │   └── Dsw2025Tpi.Data/           → Infraestructura (EF Core)
 │
+├── tests/e2e/                     → Postman/Newman E2E del flujo de compra (TP4-09)
+│
 ├── docs/
 │   ├── PLAN.md                    → Plan de implementacion
 │   ├── TP1_Resuelto.md            → Auditoria tecnica
@@ -430,6 +432,20 @@ npm run dev
 ```
 
 Frontend en `http://localhost:5173`. Proxy redirige `/api` al backend.
+
+### 4. Pruebas E2E (Postman/Newman)
+
+Con la API levantada (el environment local apunta a `http://localhost:5080`; con `dotnet run` se
+sobreescribe la URL):
+
+```bash
+cd tests/e2e
+npm ci
+npm run test:e2e -- --env-var baseUrl=http://localhost:5142
+```
+
+Contra Azure: `npm run test:e2e:azure`. El detalle de variables, asserts y reportes esta en
+[`tests/e2e/README.md`](tests/e2e/README.md).
 
 ### Variables de entorno
 

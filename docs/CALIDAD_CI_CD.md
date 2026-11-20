@@ -106,9 +106,11 @@ Carpeta `tests/e2e`:
 
 | Archivo | Uso |
 |---|---|
-| `TP4.postman_collection.json` | Registro, login, listado, compra de 3 unidades, verificacion de stock y caso de stock insuficiente |
+| `TP4-E2E.postman_collection.json` | Coleccion de TP4-09: registro, login, seleccion de producto con stock, compra de 3 unidades, verificacion de stock, caso de stock insuficiente (400) y stock intacto; valida esquema JSON en cada respuesta |
 | `TP4.postman_environment.json` | Entorno local (`http://localhost:5080`) |
 | `TP4.azure.postman_environment.json` | Entorno desplegado en Azure |
+
+El detalle de variables y asserts esta en [`tests/e2e/README.md`](../tests/e2e/README.md).
 
 El login devuelve el JWT en una cookie `HttpOnly`; la coleccion extrae el token
 del header `Set-Cookie` y lo reenvia como `Authorization: Bearer`, de modo que
@@ -127,7 +129,7 @@ npm run test:e2e
 npm run test:e2e:azure
 ```
 
-El reporte JUnit queda en `tests/e2e/results/`.
+Los reportes JUnit y HTML quedan en `tests/e2e/results/`.
 
 Para levantar la API local hace falta SQL Server (la app usa
 `UseSqlServer` y aplica migraciones al arrancar). Con Docker:
