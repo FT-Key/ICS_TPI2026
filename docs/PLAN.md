@@ -45,7 +45,7 @@ El estado de cada historia se actualiza en la columna **Estado** a medida que av
 
 | Tarjeta | Historia | Estado |
 |---|---|---|
-| **TP4-09** | Pruebas E2E con Postman/Newman — flujo de compra de punta a punta | ✅ Hecho (local) — `newman run` verde contra la API local (7 requests, 23 asserts); pendiente: push de `test/e2e-newman`, PR a `development`, corrida verde contra Azure y actualizar la tarjeta en Trello |
+| **TP4-09** | Pruebas E2E con Postman/Newman — flujo de compra de punta a punta | ✅ Hecho — colección y environment en `tests/e2e/`, job `backend-e2e-tests` del CI y `npm run test:e2e:azure` verde contra Azure (23 asserts); pendiente: actualizar la tarjeta en Trello |
 
 La coleccion, el environment y los comandos estan en [`tests/e2e/README.md`](../tests/e2e/README.md).
 
