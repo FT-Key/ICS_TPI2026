@@ -156,12 +156,24 @@ public partial class Program
         using (var scope = app.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<Dsw2025TpiContext>();
-            dbContext.Database.Migrate();
             var authContext = scope.ServiceProvider.GetRequiredService<AuthenticateContext>();
-            authContext.Database.Migrate();
-            dbContext.Seedwork<Product>("Sources/Products.json");
-            dbContext.Seedwork<Customer>("Sources/Customers.json");
-            dbContext.Seedwork<Order>("Sources/Orders.json");
+
+            // TP4-06: por defecto se aplican las migraciones de SQL Server y la semilla JSON.
+            // Las pruebas de integración ponen Database:ApplyMigrations=false: corren sobre SQLite
+            // en memoria, por lo que el esquema se crea a partir del modelo y cada test siembra sus datos.
+            if (app.Configuration.GetValue("Database:ApplyMigrations", true))
+            {
+                dbContext.Database.Migrate();
+                authContext.Database.Migrate();
+                dbContext.Seedwork<Product>("Sources/Products.json");
+                dbContext.Seedwork<Customer>("Sources/Customers.json");
+                dbContext.Seedwork<Order>("Sources/Orders.json");
+            }
+            else
+            {
+                dbContext.Database.EnsureCreated();
+                authContext.Database.EnsureCreated();
+            }
            
             
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();

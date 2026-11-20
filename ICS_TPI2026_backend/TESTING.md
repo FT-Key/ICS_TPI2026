@@ -45,3 +45,18 @@ dotnet test Dsw2025Tpi.sln -c Release --logger trx --collect:"XPlat Code Coverag
 - **Estructura:** Arrange / Act / Assert, con asserts de FluentAssertions.
 - **Datos:** cada test arma sus propios datos y puede ejecutarse solo; ninguna prueba usa la base de producción ni secretos reales.
 - **Artefactos:** `TestResults/`, `*.trx` y `coverage.*` están en `.gitignore`.
+
+## Arnés de integración (TP4-06)
+
+`Dsw2025Tpi.Tests.Integration/Infrastructure/` levanta la API real en memoria y la conecta a SQLite:
+
+- **`CustomWebApplicationFactory`** (`WebApplicationFactory<Program>`): entorno `Testing`, clave JWT y admin de prueba, y `Database:ApplyMigrations=false`. Reemplaza `Dsw2025TpiContext` y `AuthenticateContext` por SQLite `Data Source=:memory:` con una conexión abierta para cada uno, y crea el esquema con `EnsureCreated` en el arranque.
+- **`IntegrationTestCollection`**: `ICollectionFixture` que comparte un único factory. Junto con `parallelizeTestCollections: false`, las pruebas no compiten por la base.
+- **`IntegrationTestBase`**: resetea la base antes de cada test con `ResetDatabaseAsync`, así cada prueba aísla sus datos y puede correr sola.
+- **Datos:**
+  - `SeedAsync(...)` para entidades de dominio.
+  - `SeedUserAsync(usuario, contraseña, rol)` para un usuario de Identity con su `Customer` espejo.
+  - `WithDbContextAsync(...)` para hacer asserts directos sobre la base.
+- **Autenticación:** `TestJwtTokens.Admin()` / `TestJwtTokens.User(customerId)` generan tokens con el mismo issuer, audience y clave que usa la API. `client.WithAuth(token)` agrega el header `Authorization: Bearer`.
+
+La API sigue aplicando las migraciones de SQL Server y la semilla JSON en cualquier otro entorno, porque `Database:ApplyMigrations` vale `true` por defecto.
