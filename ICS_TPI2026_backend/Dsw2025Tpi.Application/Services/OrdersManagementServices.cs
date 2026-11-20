@@ -159,7 +159,9 @@ namespace Dsw2025Tpi.Application.Services
             if (!Enum.TryParse<OrderStatus>(newStatus, true, out var status) || int.TryParse(newStatus, out _))
                 throw new ArgumentException("El estado no es valido");
 
-            if (status == OrderStatus.CANCELLED && order.OrderItems.Count > 0)
+            // Solo se restituye stock en la transicion a CANCELLED: cancelar una orden ya cancelada
+            // no debe devolver las unidades otra vez.
+            if (status == OrderStatus.CANCELLED && order.Status != OrderStatus.CANCELLED && order.OrderItems.Count > 0)
             {
                 // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden.
                 var productIds = order.OrderItems.Select(i => i.ProductId).Distinct().ToList();

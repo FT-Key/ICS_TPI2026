@@ -94,6 +94,30 @@ public class OrderBatchQueryTests
     }
 
     [Fact]
+    public async Task UpdateOrderStatus_ACanceladoDosVeces_RestauraElStockUnaSolaVez()
+    {
+        await using var database = new SqliteTestDatabase();
+        var (customerId, products) = await SeedCatalog(database, stock: 10);
+        var orderId = await CreateOrder(database, customerId, products);
+
+        await using (var firstContext = database.CreateContext())
+        {
+            var firstService = new OrdersManagementService(new EfRepository(firstContext));
+            await firstService.UpdateOrderStatus(orderId, "cancelled");
+        }
+
+        await using var secondContext = database.CreateContext();
+        var secondService = new OrdersManagementService(new EfRepository(secondContext));
+        var response = await secondService.UpdateOrderStatus(orderId, "cancelled");
+
+        Assert.Equal(OrderStatus.CANCELLED, response.Status);
+
+        await using var verifyContext = database.CreateContext();
+        var stocks = await verifyContext.Products.Select(p => p.StockQuantity).ToListAsync();
+        Assert.All(stocks, stock => Assert.Equal(10, stock));
+    }
+
+    [Fact]
     public async Task AddOrder_SinStockSuficiente_NoPersisteDescuentoParcial()
     {
         await using var database = new SqliteTestDatabase();
