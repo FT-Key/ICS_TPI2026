@@ -1,0 +1,19 @@
+{
+  "name": "ics-tp4-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pruebas End-to-End (Postman + Newman) del flujo de compra - TP4-09",
+  "scripts": {
+    "pretest:e2e": "node -e \"require('fs').mkdirSync('results', { recursive: true })\"",
+    "test:e2e": "newman run TP4-E2E.postman_collection.json -e TP4.postman_environment.json --reporters cli,junit,htmlextra --reporter-junit-export results/e2e-junit.xml --reporter-htmlextra-export results/e2e-report.html --timeout-request 60000",
+    "pretest:e2e:azure": "node -e \"require('fs').mkdirSync('results', { recursive: true })\"",
+    "test:e2e:azure": "newman run TP4-E2E.postman_collection.json -e TP4.azure.postman_environment.json --reporters cli,junit,htmlextra --reporter-junit-export results/e2e-azure-junit.xml --reporter-htmlextra-export results/e2e-azure-report.html --timeout-request 60000"
+  },
+  "devDependencies": {
+    "newman": "6.2.3",
+    "newman-reporter-htmlextra": "1.23.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
