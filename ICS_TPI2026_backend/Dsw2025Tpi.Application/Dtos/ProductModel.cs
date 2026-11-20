@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +11,7 @@ public record ProductModel
     public record RequestProductModel(string Sku, string InternalCode, string Name, string Description, decimal CurrentUnitPrice, int StockQuantity);
 
     public record ResponseProductModel(Guid Id, string? Sku, string? InternalCode, string? Name, string? Description, decimal? CurrentUnitPrice, int? StockQuantity, bool IsActive);
-    public record ResponsePagination(List<ResponseProductModel> ProductItems, int Total);
+    // TP4-02: TotalItems es el total filtrado sin paginar (antes "Total").
+    public record ResponsePagination(List<ResponseProductModel> ProductItems, int TotalItems);
     public record FilterProduct(string? Status, string? Search, int? pageNumber, int? PageSize);
 }

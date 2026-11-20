@@ -1,4 +1,4 @@
-﻿using Dsw2025Tpi.Application.Dtos;
+using Dsw2025Tpi.Application.Dtos;
 using Dsw2025Tpi.Application.Exceptions;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Domain.Entities;
@@ -52,6 +52,20 @@ public class OrdersController : ControllerBase
 
             return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, order);
         }
+        catch (InsufficientStockException ise)
+        {
+            // TP4-02: stock insuficiente -> 400 con un mensaje claro; no hubo cambios en la base.
+            return BadRequest(ise.Message);
+        }
+        catch (EntityNotFoundException nfe)
+        {
+            return BadRequest(nfe.Message);
+        }
+        catch (Dsw2025Tpi.Application.Exceptions.ApplicationException ape)
+        {
+            // Datos inválidos (InvalidDataException) y demás errores de negocio.
+            return BadRequest(ape.Message);
+        }
         catch (ArgumentException ae)
         {
             
@@ -60,10 +74,6 @@ public class OrdersController : ControllerBase
         catch (InvalidOperationException ioe)
         {
             
-            return BadRequest(ioe.Message);
-        }
-        catch (EntityNotFoundException ioe)
-        {
             return BadRequest(ioe.Message);
         }
     }

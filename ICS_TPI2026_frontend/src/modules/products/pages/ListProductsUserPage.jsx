@@ -39,7 +39,7 @@ function ListProductsUserPage() {
         return;
       }
 
-      setTotal(data?.total || 0);
+      setTotal(data?.totalItems || 0);
       setProducts(data?.productItems || []);
     } finally {
       setLoading(false);

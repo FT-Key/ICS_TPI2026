@@ -110,8 +110,8 @@ function CreateProductForm() {
           {...register('stock', {
             required: 'El stock es obligatorio',
             min: {
-              value: 0,
-              message: 'El stock no puede ser negativo',
+              value: 1,
+              message: 'El stock debe ser mayor a 0',
             },
           })}
         />

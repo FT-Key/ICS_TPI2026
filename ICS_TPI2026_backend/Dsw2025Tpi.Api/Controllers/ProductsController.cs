@@ -1,4 +1,4 @@
-﻿using Dsw2025Tpi.Application.Dtos;
+using Dsw2025Tpi.Application.Dtos;
 using Dsw2025Tpi.Application.Exceptions;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Domain.Entities;
@@ -34,11 +34,8 @@ public class ProductsController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetProducts([FromQuery] ProductModel.FilterProduct filter)
     {
-        // Ahora le pasamos 'filter' al paréntesis
-        var result = await _service.GetProducts(filter);
-        // 2. Validamos si trajo algo
-        if (result == null) return NoContent();
-        // 3. Devolvemos el resultado (que ya incluye la lista y el total)
+        // TP4-02: el catálogo público solo expone productos activos (se ignora "status").
+        var result = await _service.GetProducts(filter, includeInactive: false);
         return Ok(result);
     }
 
@@ -67,7 +64,13 @@ public class ProductsController : ControllerBase
         try
         {
             var product = await _service.AddProduct(request);
-            return Ok(product);
+            // TP4-02: 201 Created con header Location apuntando a GET /api/products/{id}.
+            return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, product);
+        }
+        catch (DuplicatedEntityException de)
+        {
+            // TP4-02: SKU repetido -> 409 Conflict (nunca 500).
+            return Conflict(de.Message);
         }
         catch (ArgumentException ae)
         {
@@ -94,6 +97,10 @@ public class ProductsController : ControllerBase
         {
             
             return NotFound(ioe.Message);
+        }
+        catch (DuplicatedEntityException de)
+        {
+            return Conflict(de.Message);
         }
         catch (ArgumentException ae)
         {
@@ -134,12 +141,8 @@ public class ProductsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAuthProducts([FromQuery] ProductModel.FilterProduct request)
     {
-        var products = await _service.GetProducts(request);
-        if (products == null)
-        {
-            Response.Headers.Append("X-Message", "There are no active products");
-            return NoContent();
-        }
+        // Panel admin: incluye inactivos y respeta el filtro "status" (enabled / disabled).
+        var products = await _service.GetProducts(request, includeInactive: true);
         return Ok(products);
     }
 }
