@@ -1,0 +1,63 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "workflow",
+  "subagent_depth": 2,
+  "agent": {
+    "workflow": {
+      "mode": "primary",
+      "description": "Orquestador del flujo completo de trabajo. Ejecuta todo el proceso desde 'Haz la tarjeta US-XX' hasta el PR listo para review. Degradacion elegante: sin MCP de Trello actualiza la doc del plan local y deja pendiente la tarjeta; sin MCP de GitHub llega hasta el push de la rama.",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "task": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "websearch": "allow"
+      }
+    },
+    "build": {
+      "mode": "subagent",
+      "description": "Implementador de codigo. Ejecuta tareas de coding y ejecuta comandos.",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "task": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow"
+      }
+    },
+    "plan": {
+      "mode": "primary",
+      "description": "Planifica tareas complejas, analiza el codebase y genera estrategias de implementacion.",
+      "permission": {
+        "edit": "deny",
+        "bash": "allow",
+        "task": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "websearch": "allow"
+      }
+    },
+    "explore": {
+      "mode": "subagent",
+      "description": "Explora el codebase rapidamente: busca archivos, patrones de codigo y responde preguntas sobre la estructura."
+    },
+    "general": {
+      "mode": "subagent",
+      "description": "Agente general-purpose para investigar preguntas complejas y ejecutar tareas de multiples pasos."
+    },
+    "reviewer": {
+      "mode": "subagent",
+      "description": "Revisa codigo para errores, estilo y buenas practicas."
+    },
+    "github": {
+      "mode": "subagent",
+      "description": "Gestiona git y GitHub: crea ramas, commits, pushes y PRs."
+    }
+  }
+}

@@ -1,6 +1,7 @@
-﻿using Azure.Core;
+using Azure.Core;
 using Dsw2025Tpi.Application.Dtos;
 using Dsw2025Tpi.Application.Exceptions;
+using Dsw2025Tpi.Application.Mappers;
 using Dsw2025Tpi.Application.Validation;
 using Dsw2025Tpi.Data.Repositories;
 using Dsw2025Tpi.Domain.Entities;
@@ -28,18 +29,7 @@ namespace Dsw2025Tpi.Application.Services
             var order = await _repository.GetById<Order>(id, nameof(Order.OrderItems), "OrderItems.Product");
             if (order == null) throw new EntityNotFoundException($"Order not found");
 
-            var responseItems = order.OrderItems.Select(i => new OrderItemModel.ResponseOrderItemModel(
-                    i.Id,
-                    i.Quantity,
-                    i.UnitPrice,
-                    i.OrderId,
-                    i.ProductId,
-                    i.Subtotal
-                )).ToList();
-
-            return order != null ?
-                new OrderModel.ResponseOrderModel(order.Id, order.Date, order.ShippingAddress, order.BillingAddress, order.Notes, order.CustomerId, order.Customer?.Name, order.Status, order.TotalAmount, responseItems) :
-                null;
+            return order.MapToResponse();
         }
 
         public async Task<OrderModel.ResponsePagination?> GetAllOrders(OrderModel.SearchOrder request)
@@ -84,103 +74,84 @@ namespace Dsw2025Tpi.Application.Services
             var paginatedItems = (orders ?? Enumerable.Empty<Order>())
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .Select(order => new OrderModel.ResponseOrderModel(
-                    order.Id,
-                    order.Date,
-                    order.ShippingAddress,
-                    order.BillingAddress,
-                    order.Notes,
-                    order.CustomerId,
-                    order.Customer?.Name,
-                    order.Status,
-                    order.TotalAmount,
-                    order.OrderItems.Select(i => new OrderItemModel.ResponseOrderItemModel(
-                        i.Id,
-                        i.Quantity,
-                        i.UnitPrice,
-                        i.OrderId,
-                        i.ProductId,
-                        i.Subtotal
-                    )).ToList()
-                ))
+                .Select(order => order.MapToResponse())
                 .ToList();
 
             // 7. Devolver Objeto Paginado
             return new OrderModel.ResponsePagination(paginatedItems, totalCount);
         }
 
-        public async Task<OrderModel.ResponseOrderModel> AddOrder(OrderModel.RequestOrderModel request)
+        // El customerId proviene del claim "id" del JWT, nunca del body (AT-01).
+        // TP4-02: todas las validaciones (datos, cliente, existencia y stock de cada item)
+        // ocurren antes de mutar productos; el descuento de stock y el alta de la orden
+        // se ejecutan dentro de una única transacción.
+        public async Task<OrderModel.ResponseOrderModel> AddOrder(OrderModel.RequestOrderModel request, Guid customerId)
         {
             OrderValidator.Validate(request);
 
-            if (request.OrderItems == null || !request.OrderItems.Any())
-                throw new ArgumentException("La orden tiene que tener mas de un item.");
-
-            var customer = await _repository.GetById<Customer>(request.CustomerId);
+            var customer = await _repository.GetById<Customer>(customerId);
             if (customer == null)
-                throw new EntityNotFoundException($"Customer con ID {request.CustomerId} not found.");
+                throw new CustomerNotFoundException(customerId);
 
             var order = new Order(
                 request.ShippingAddress,
                 request.BillingAddress,
                 request.Notes,
-                request.CustomerId
+                customerId
             );
 
-            var orderItems = new List<OrderItem>();
+            // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden (AT-03).
+            var productIds = request.OrderItems.Select(i => i.ProductId).Distinct().ToList();
+            var products = await _repository.GetFiltered<Product>(p => productIds.Contains(p.Id))
+                ?? Enumerable.Empty<Product>();
+            var productsById = products.ToDictionary(p => p.Id);
+
+            // Cantidad total pedida por producto (soporta el mismo producto repetido en varios items).
+            var requestedQuantities = request.OrderItems
+                .GroupBy(i => i.ProductId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+            var orderItems = new List<OrderItem>(request.OrderItems.Count);
 
             foreach (var item in request.OrderItems)
             {
-                var product = await _repository.GetById<Product>(item.ProductId)
-                    ?? throw new EntityNotFoundException($"Producto not found: {item.ProductId}");
+                if (!productsById.TryGetValue(item.ProductId, out var product))
+                    throw new EntityNotFoundException($"Producto not found: {item.ProductId}");
 
-                if (product.StockQuantity < item.Quantity)
-                    throw new InvalidOperationException($"Stock insuficiente: {product.Name}");
+                var requested = requestedQuantities[item.ProductId];
+                if (product.StockQuantity < requested)
+                    throw new InsufficientStockException(product.Id, product.Name, product.StockQuantity, requested);
 
-                product.StockQuantity -= item.Quantity;
-                await _repository.Update(product);
-
-                var orderItem = new OrderItem(
+                orderItems.Add(new OrderItem(
                     item.Quantity,
                     product.CurrentUnitPrice,
                     order.Id,
                     product.Id
-                );
-                orderItems.Add(orderItem);
-
-
-
+                ));
             }
 
             order.OrderItems = orderItems;
-            await _repository.Add(order);
 
-            var responseItems = orderItems.Select(oi => new OrderItemModel.ResponseOrderItemModel(
-                oi.Id,
-                oi.Quantity,
-                oi.UnitPrice,
-                oi.OrderId,
-                oi.ProductId,
-                oi.Subtotal
-            )).ToList();
+            // Recién acá se modifica el inventario: si cualquier paso falla, la transacción
+            // revierte el descuento de stock y la orden no se crea.
+            await _repository.ExecuteInTransactionAsync(async () =>
+            {
+                foreach (var (productId, quantity) in requestedQuantities)
+                {
+                    var product = productsById[productId];
+                    product.StockQuantity -= quantity;
+                    await _repository.Update(product);
+                }
 
-            return new OrderModel.ResponseOrderModel(
-                order.Id,
-                order.Date,
-                order.ShippingAddress,
-                order.BillingAddress,
-                order.Notes,
-                order.CustomerId,
-                order.Customer?.Name,
-                order.Status,
-                order.TotalAmount,
-                responseItems
-            );
+                await _repository.Add(order);
+            });
+
+            return order.MapToResponse();
         }
 
         public async Task<OrderModel.ResponseOrderModel> UpdateOrderStatus(Guid id, string newStatus)
         {
-            var order = await _repository.GetById<Order>(id, nameof(Order.OrderItems), "OrderItems.Product");
+            var order = await _repository.GetById<Order>(id, nameof(Order.OrderItems));
 
             if (order == null)
                 throw new EntityNotFoundException($"Order con el ID: {id} not found");
@@ -188,45 +159,36 @@ namespace Dsw2025Tpi.Application.Services
             if (!Enum.TryParse<OrderStatus>(newStatus, true, out var status) || int.TryParse(newStatus, out _))
                 throw new ArgumentException("El estado no es valido");
 
-            if (status == OrderStatus.CANCELLED)
+            // Solo se restituye stock en la transicion a CANCELLED: cancelar una orden ya cancelada
+            // no debe devolver las unidades otra vez.
+            if (status == OrderStatus.CANCELLED && order.Status != OrderStatus.CANCELLED && order.OrderItems.Count > 0)
             {
-                foreach (var item in order.OrderItems)
+                // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden.
+                var productIds = order.OrderItems.Select(i => i.ProductId).Distinct().ToList();
+                var products = await _repository.GetFiltered<Product>(p => productIds.Contains(p.Id))
+                    ?? Enumerable.Empty<Product>();
+                var productsById = products.ToDictionary(p => p.Id);
+
+                var quantitiesToRestore = order.OrderItems
+                    .GroupBy(i => i.ProductId)
+                    .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+                // Restitucion de stock en memoria sobre las entidades trackeadas.
+                foreach (var (productId, quantity) in quantitiesToRestore)
                 {
-                    var product = await _repository.GetById<Product>(item.ProductId);
-                    if (product != null)
+                    if (productsById.TryGetValue(productId, out var product))
                     {
-                        product.StockQuantity += item.Quantity;
-                        await _repository.Update(product);
+                        product.StockQuantity += quantity;
                     }
                 }
             }
 
             order.Status = status;
 
-            await _repository.Update(order);
+            // Un unico SaveChangesAsync persiste el estado y la restitucion de stock.
+            await _repository.SaveChangesAsync();
 
-            var responseItems = order.OrderItems.Select(oi => new OrderItemModel.ResponseOrderItemModel(
-            oi.Id,
-            oi.Quantity,
-            oi.UnitPrice,
-            oi.OrderId,
-            oi.ProductId,
-            oi.Subtotal
-            )).ToList();
-
-            return new OrderModel.ResponseOrderModel
-           (
-                order.Id,
-                order.Date,
-                order.ShippingAddress,
-                order.BillingAddress,
-                order.Notes,
-                order.CustomerId,
-                order.Customer?.Name,
-                order.Status,
-                order.TotalAmount,
-                responseItems
-            );
+            return order.MapToResponse();
         }
     }
 }

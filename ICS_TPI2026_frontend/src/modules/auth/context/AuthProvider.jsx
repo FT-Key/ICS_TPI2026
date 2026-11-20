@@ -1,32 +1,34 @@
-import { createContext, useState } from 'react';
-import { jwtDecode } from 'jwt-decode'; // Necesario para leer la identidad del token
+import { createContext, useEffect, useState } from 'react';
 import { login } from '../services/login';
+import { logout as logoutService } from '../services/logout';
 import { register as registerService } from '../services/register';
 
 const AuthContext = createContext();
 
+const readStoredUser = () => {
+  try {
+    const storedUser = localStorage.getItem('user');
+
+    // Validación extra para evitar el "undefined"
+    if (!storedUser || storedUser === 'undefined') return null;
+
+    return JSON.parse(storedUser);
+  } catch {
+    return null;
+  }
+};
+
 function AuthProvider({ children }) {
 
-  // Inicializar estado del usuario desde localStorage
-  const [user, setUser] = useState(() => {
-    try {
-      const storedUser = localStorage.getItem('user');
+  // Inicializar estado del usuario desde localStorage (solo datos no sensibles)
+  const [user, setUser] = useState(readStoredUser);
 
-      // Validación extra para evitar el "undefined"
-      if (!storedUser || storedUser === 'undefined') return null;
+  const isAuthenticated = Boolean(user);
 
-      return JSON.parse(storedUser);
-    } catch {
-      return null;
-    }
-  });
-
-  // Inicializar estado de autenticación
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const token = localStorage.getItem('token');
-
-    return Boolean(token);
-  });
+  useEffect(() => {
+    // AT-06: limpiar el token que guardaban las versiones anteriores en localStorage.
+    localStorage.removeItem('token');
+  }, []);
 
   const signin = async (username, password) => {
     const { data, error } = await login(username, password);
@@ -35,44 +37,26 @@ function AuthProvider({ children }) {
       return { error };
     }
 
-    try {
-      const token = data.token;
+    // El JWT viaja en una cookie HttpOnly: el backend devuelve solo el perfil.
+    const userData = {
+      username: data.username,
+      customerId: data.customerId,
+      role: data.role || 'User',
+    };
 
-      // PATRÓN IDENTITY: Decodificamos el token para obtener los Claims
-      const decoded = jwtDecode(token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
 
-      // Construimos el objeto de usuario basado en los datos del token
-      const userData = {
-        // sub es el claim estándar para el username
-        username: decoded.sub,
-
-        // id es el claim personalizado que agregamos en el backend para el CustomerId
-        customerId: decoded.id,
-
-        // Buscamos mil formas de usar el patron identity con el rol y necesitamos esta url
-        role: decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || 'User',
-      };
-
-      // Guardamos el token y el usuario procesado
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      // Actualizamos el estado de la aplicación
-      setUser(userData);
-      setIsAuthenticated(true);
-
-      return { error: null };
-
-    } catch {
-      return { error: { message: 'Error de seguridad al procesar credenciales.' } };
-    }
+    return { error: null };
   };
 
-  const signout = () => {
+  const signout = async () => {
+    // Cerramos la sesion local y pedimos al backend que elimine la cookie HttpOnly.
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    setIsAuthenticated(false);
+
+    await logoutService();
   };
 
   const register = async (username, password, email, role, name) => {

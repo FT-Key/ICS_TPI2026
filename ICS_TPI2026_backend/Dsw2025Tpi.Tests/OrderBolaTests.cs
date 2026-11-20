@@ -1,0 +1,100 @@
+using System.Security.Claims;
+using System.Text.Json;
+using Dsw2025Tpi.Api.Controllers;
+using Dsw2025Tpi.Application.Dtos;
+using Dsw2025Tpi.Application.Services;
+using Dsw2025Tpi.Domain.Entities;
+using Dsw2025Tpi.Domain.Interfaces;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Xunit;
+
+namespace Dsw2025Tpi.Tests;
+
+[Trait("Category", "Unit")]
+public class OrderBolaTests
+{
+    private static readonly Guid UserA = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid UserB = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    [Fact]
+    public void RequestOrderModel_NoExponeCustomerId()
+    {
+        var customerIdProperty = typeof(OrderModel.RequestOrderModel).GetProperty("CustomerId");
+
+        Assert.Null(customerIdProperty);
+    }
+
+    [Fact]
+    public async Task AddOrder_IgnoraCustomerIdDelBody_YCreaLaOrdenParaElUsuarioDelToken()
+    {
+        var product = new Product("SKU-1", "INT-1", "Producto", "Descripcion", 10m, 5);
+
+        // Arrange: el body simula un ataque BOLA enviando el CustomerId de otro usuario.
+        var json = $$"""
+        {
+          "customerId": "{{UserB}}",
+          "shippingAddress": "Calle Falsa 123",
+          "billingAddress": "Calle Falsa 123",
+          "notes": "",
+          "orderItems": [ { "productId": "{{product.Id}}", "quantity": 1 } ]
+        }
+        """;
+
+        var request = JsonSerializer.Deserialize<OrderModel.RequestOrderModel>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(request);
+
+        var repository = new FakeRepository(
+            new Customer(UserA, "Usuario A", "a@test.com"),
+            new Customer(UserB, "Usuario B", "b@test.com"),
+            product);
+
+        var controller = CreateController(repository, UserA);
+
+        // Act
+        var result = await controller.AddOrder(request);
+
+        // Assert: la orden queda a nombre del usuario autenticado (A), no del body (B).
+        var created = Assert.IsType<CreatedAtActionResult>(result);
+        var response = Assert.IsType<OrderModel.ResponseOrderModel>(created.Value);
+        Assert.Equal(UserA, response.CustomerId);
+
+        var savedOrder = Assert.Single(repository.Orders);
+        Assert.Equal(UserA, savedOrder.CustomerId);
+    }
+
+    [Fact]
+    public async Task AddOrder_SinClaimId_DevuelveUnauthorized()
+    {
+        var controller = CreateController(new FakeRepository(), authenticatedCustomerId: null);
+
+        var request = new OrderModel.RequestOrderModel("Calle 1", "Calle 2", null, []);
+
+        var result = await controller.AddOrder(request);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    private static OrdersController CreateController(IRepository repository, Guid? authenticatedCustomerId)
+    {
+        var claims = new List<Claim>();
+        if (authenticatedCustomerId.HasValue)
+        {
+            claims.Add(new Claim("id", authenticatedCustomerId.Value.ToString()));
+        }
+
+        return new OrdersController(new OrdersManagementService(repository))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
+                }
+            }
+        };
+    }
+}

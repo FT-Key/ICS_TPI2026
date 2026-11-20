@@ -19,9 +19,9 @@ export const getOrders = async (customerId = null, status = null, pageNumber = 1
       const url = `api/orders?${queryString}`;
       const response = await fetch(url, {
         method: 'GET',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
 

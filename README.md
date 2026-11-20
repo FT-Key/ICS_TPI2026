@@ -246,7 +246,6 @@ erDiagram
 | Axios | 1.13.2 | Cliente HTTP |
 | React Hook Form | 7.65.0 | Formularios |
 | Tailwind CSS | 4.1.14 | Estilos utility-first |
-| jwt-decode | 4.0.0 | Decodificacion de JWT |
 
 **Despliegue:** Vercel — https://ics-tpi-2026.vercel.app (frontend SPA estatico)
 
@@ -296,6 +295,8 @@ ICS/
 │   ├── Dsw2025Tpi.Domain/         → Modelo de dominio
 │   └── Dsw2025Tpi.Data/           → Infraestructura (EF Core)
 │
+├── tests/e2e/                     → Postman/Newman E2E del flujo de compra (TP4-09)
+│
 ├── docs/
 │   ├── PLAN.md                    → Plan de implementacion
 │   ├── TP1_Resuelto.md            → Auditoria tecnica
@@ -333,7 +334,8 @@ Dsw2025Tpi.Data/           → Infraestructura (DbContext, Repositories)
 
 | Metodo | Ruta | Auth | Descripcion |
 |---|---|---|---|
-| POST | `/api/auth/login` | Anonimo | Login, retorna `{ token }` |
+| POST | `/api/auth/login` | Anonimo | Login: setea cookie HttpOnly y retorna el perfil |
+| POST | `/api/auth/logout` | Anonimo | Elimina la cookie de sesion |
 | POST | `/api/auth/register` | Anonimo | Registro de usuario |
 
 ### ProductsController (`/api/products`)
@@ -398,6 +400,29 @@ dotnet run --project Dsw2025Tpi.Api
 
 Backend en `http://localhost:5142` (o en `http://localhost:8080` si se levanta con `docker compose up -d`). Swagger en `/swagger` (solo en entorno `Development`).
 
+### 2b. Backend con Docker (build y run de la imagen)
+
+Alternativa a `dotnet run`: construir y ejecutar la imagen de la API (`ICS_TPI2026_backend/Dockerfile`, multi-stage `sdk:8.0` -> `aspnet:8.0`, expone el puerto `8080`).
+
+```bash
+cd ICS_TPI2026_backend
+
+# Build
+docker build -t ics-api .
+
+# Run (la base del paso 1 debe estar levantada)
+docker run --rm -p 8080:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Development \
+  -e "ConnectionStrings__Dsw2025Tpi=Server=host.docker.internal,1433;Database=Dsw2025Tpi;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=True;Encrypt=False;" \
+  -e Jwt__Key=<clave-jwt> \
+  -e DefaultAdminUser__Password=<password-admin> \
+  ics-api
+```
+
+- `Jwt__Key` y `DefaultAdminUser__Password` no tienen valor por defecto: sin `Jwt__Key` la API no arranca. Los valores locales estan en `ICS_TPI2026_backend/.env` (ver `.env.example`).
+- `host.docker.internal` apunta al host, donde el contenedor SQL Server publica el puerto `1433`.
+- `docker compose up -d` hace lo mismo (build de la API + SQL Server) leyendo `JWT_KEY` y `ADMIN_PASSWORD` del `.env`.
+
 ### 3. Frontend
 
 ```bash
@@ -407,6 +432,20 @@ npm run dev
 ```
 
 Frontend en `http://localhost:5173`. Proxy redirige `/api` al backend.
+
+### 4. Pruebas E2E (Postman/Newman)
+
+Con la API levantada (el environment local apunta a `http://localhost:5080`; con `dotnet run` se
+sobreescribe la URL):
+
+```bash
+cd tests/e2e
+npm ci
+npm run test:e2e -- --env-var baseUrl=http://localhost:5142
+```
+
+Contra Azure: `npm run test:e2e:azure`. El detalle de variables, asserts y reportes esta en
+[`tests/e2e/README.md`](tests/e2e/README.md).
 
 ### Variables de entorno
 
@@ -458,7 +497,7 @@ Los nombres van en minusculas y con guiones. Las ramas de trabajo siempre siguen
 
 | Entorno | Usuario admin | Contraseña | Base de datos |
 |---|---|---|---|
-| Local | `admin` | `SecurePassword123!` (en `appsettings.json`) | `sa` / `YourStrong!Password123` (en `docker-compose.yml`) |
+| Local | `admin` | variable `ADMIN_PASSWORD` de `ICS_TPI2026_backend/.env` (ver `.env.example`) | `sa` / `YourStrong!Password123` (en `docker-compose.yml`) |
 | Produccion (Azure) | `admin` | `AdminTp3$2026!Xyz` (en Application Settings) | via connection string de la App Service |
 
 Detalles y variables de entorno completas: `docs/TP3_Documentacion.md`, capitulo 8.

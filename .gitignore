@@ -9,6 +9,15 @@ obj/
 # Logs
 *.log
 
+# Resultados de pruebas y cobertura (TP4)
+TestResults/
+*.trx
+coverage.*
+coverage/
+coveragereport/
+newman/
+tests/e2e/results/
+
 # IDE
 .vs/
 .idea/
@@ -20,11 +29,10 @@ Thumbs.db
 # Playwright MCP
 .playwright-mcp/
 
-# OpenCode (local config, not shared)
-opencode.json
-.opencode/
+# OpenCode (opencode.json y .opencode/skills + tools se comparten en el repo;
+# node_modules/ ya esta cubierto arriba)
 agents.md
-skills/
+/skills/
 
 # Environment / secrets
 .env

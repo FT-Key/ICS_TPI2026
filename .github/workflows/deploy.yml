@@ -1,9 +1,24 @@
 name: Build and Deploy to Azure App Service (Publish Profile)
 
+# El deploy NO se dispara con push directo: espera a que el workflow de CI
+# termine sobre main y solo continua si la conclusion fue "success".
+# Este archivo debe existir en la rama default (development) para que
+# workflow_run lo detecte.
 on:
-  push:
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
+
+# Un deploy a la vez: nunca cancelar uno en curso a mitad de camino.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
 
 env:
   DOCKERHUB_USERNAME: fntkey
@@ -12,10 +27,21 @@ env:
 
 jobs:
   build-and-deploy:
+    # Gate: si cualquier job de CI fallo (o el workflow_run no existe), no se despliega.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
-      - name: 1. Obtener el codigo
+      - name: 1. Obtener el codigo del commit que paso el CI
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: 2. Iniciar sesion en Docker Hub
         uses: docker/login-action@v3
@@ -27,13 +53,13 @@ jobs:
         run: |
           docker build \
             -f ${{ env.BACKEND_DIR }}/Dockerfile \
-            -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.DEPLOY_SHA }} \
             -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
             ${{ env.BACKEND_DIR }}
 
       - name: 4. Subir la imagen a Docker Hub
         run: |
-          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.DEPLOY_SHA }}
           docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
 
       - name: 5. Desplegar el contenedor en Azure App Service
@@ -41,7 +67,7 @@ jobs:
         with:
           app-name: ${{ secrets.APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          images: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.DEPLOY_SHA }}
 
       - name: 6. Smoke test
         run: |
@@ -50,3 +76,26 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: 7. Resumen del gate
+        if: always()
+        run: |
+          {
+            echo "## Deploy a Azure App Service"
+            echo ""
+            echo "| Dato | Valor |"
+            echo "|---|---|"
+            echo "| Disparador | \`${{ github.event_name }}\` |"
+            echo "| Resultado del CI | \`${{ github.event.workflow_run.conclusion || 'manual' }}\` |"
+            echo "| Commit desplegado | \`${{ env.DEPLOY_SHA }}\` |"
+            echo "| Estado del deploy | \`${{ job.status }}\` |"
+            echo ""
+            echo "El deploy solo se ejecuta cuando el workflow **Continuous Integration** termina en \`success\` sobre \`main\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 8. Notificar fallo a Slack
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        run: |
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":x: Fallo el deploy a Azure del commit ${{ env.DEPLOY_SHA }}. Ver ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$SLACK_WEBHOOK_URL"

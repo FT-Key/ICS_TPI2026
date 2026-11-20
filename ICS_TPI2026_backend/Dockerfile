@@ -6,7 +6,8 @@ COPY Dsw2025Tpi.Api/*.csproj Dsw2025Tpi.Api/
 COPY Dsw2025Tpi.Application/*.csproj Dsw2025Tpi.Application/
 COPY Dsw2025Tpi.Domain/*.csproj Dsw2025Tpi.Domain/
 COPY Dsw2025Tpi.Data/*.csproj Dsw2025Tpi.Data/
-RUN dotnet restore
+# Restauramos solo el proyecto de la API: la imagen no necesita el proyecto de tests.
+RUN dotnet restore Dsw2025Tpi.Api/Dsw2025Tpi.Api.csproj
 COPY . .
 RUN dotnet publish Dsw2025Tpi.Api/Dsw2025Tpi.Api.csproj -c Release -o /app/publish --no-restore
 

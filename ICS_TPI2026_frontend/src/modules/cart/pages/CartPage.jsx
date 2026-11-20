@@ -1,93 +1,64 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Hooks
 import useAuth from '../../auth/hooks/useAuth';
-import { useCart } from '../hooks/useCart';
+import useModal from '../../shared/hooks/useModal';
 import { useDeleteQuantity } from '../../shared/hooks/useDeleteQuantity';
-import { useToggleMap } from '../../shared/hooks/useToggleMap';
+import { useCart } from '../hooks/useCart';
 
 // Components
 import Button from '../../shared/components/Button';
 import Card from '../../shared/components/Card';
-import UserHeaderMenu from '../../shared/components/UserHeaderMenu';
-import MobileSideMenu from '../../shared/components/MobileSideMenu';
-import LoginModal from '../../auth/components/LoginModal';
-import RegisterModal from '../../auth/components/RegisterModal';
 
 // Services
 import { createOrder } from '../../orders/services/createOrder';
 
 function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, clearCart, updateQuantity } = useCart();
+  const {
+    cart,
+    removeItem,
+    clearCart,
+    updateQuantity,
+    totalItems,
+    totalAmount,
+  } = useCart();
   const { user, isAuthenticated } = useAuth();
+  const { openLogin } = useModal();
   const isAdmin = user?.role === 'Admin'; // o el valor exacto que uses para admin
 
   const { get, increment, decrement, reset } = useDeleteQuantity();
 
-  const {
-    state: modals,
-    open,
-    close,
-  } = useToggleMap({
-    cartMenu: false,
-    loginModal: false,
-    registerModal: false,
-  });
-
-  const totalItems = cart.reduce((acc, p) => acc + p.quantity, 0);
-  const totalAmount = cart.reduce((acc, p) => acc + p.quantity * p.currentUnitPrice, 0);
-
-  useEffect(() => {
-    const openLogin = () => open('loginModal');
-    const openRegister = () => open('registerModal');
-
-    window.addEventListener('open-login', openLogin);
-    window.addEventListener('open-register', openRegister);
-
-    return () => {
-      window.removeEventListener('open-login', openLogin);
-      window.removeEventListener('open-register', openRegister);
-    };
-  }, [open]);
-
   const sendOrder = async () => {
     if (!isAuthenticated) {
-      open('loginModal');
+      openLogin();
 
       return;
     }
 
-    try {
-      const orderData = {
-        customerId: user.customerId,
-        shippingAddress: 'Sin especificar',
-        billingAddress: 'Sin especificar',
-        notes: '',
-        orderItems: cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-      };
+    const orderData = {
+      shippingAddress: 'Sin especificar',
+      billingAddress: 'Sin especificar',
+      notes: '',
+      orderItems: cart.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+    };
 
-      const { error } = await createOrder(orderData);
+    const { error } = await createOrder(orderData);
 
-      if (error) throw error;
+    if (error) {
+      alert(error.message || 'Error al procesar la orden.');
 
-      clearCart();
-      navigate('/');
-    } catch {
-      alert('Error al procesar la orden.');
+      return;
     }
+
+    clearCart();
+    navigate('/');
   };
 
   const handleCheckout = () => sendOrder();
-
-  const handleLoginSuccess = () => {
-    close('loginModal');
-    sendOrder();
-  };
 
   if (cart.length === 0) {
     return (
@@ -111,41 +82,6 @@ function CartPage() {
 
   return (
     <div className="container mx-auto p-4">
-      {/* Header */}
-      <Card>
-        <UserHeaderMenu
-          title="Carrito"
-          search={{ value: '', onChange: () => {}, onSearch: () => {} }}
-          onGoProducts={() => navigate('/')}
-          onGoCart={null}
-          onOpenLogin={() => open('loginModal')}
-          onOpenRegister={() => open('registerModal')}
-          onOpenMobileMenu={() => open('cartMenu')}
-          totalItems={totalItems}
-        />
-      </Card>
-
-      {/* Mobile menu */}
-      <MobileSideMenu
-        isOpen={modals.cartMenu}
-        title="Menú"
-        onClose={() => close('cartMenu')}
-        onGoProducts={() => {
-          close('cartMenu');
-          navigate('/');
-        }}
-        onGoCart={null}
-        totalItems={totalItems}
-        onOpenLogin={() => {
-          close('cartMenu');
-          open('loginModal');
-        }}
-        onOpenRegister={() => {
-          close('cartMenu');
-          open('registerModal');
-        }}
-      />
-
       {/* Cart Items + Order Summary */}
       <div className="mt-4 flex flex-col sm:flex-row gap-4">
         {/* Cart items */}
@@ -191,7 +127,7 @@ function CartPage() {
                   <Button
                     className="text-sm px-4 py-2 sm:text-base font-semibold"
                     onClick={() => {
-                      if (delQty >= item.quantity) removeFromCart(item.sku);
+                      if (delQty >= item.quantity) removeItem(item.sku);
                       else updateQuantity(item.sku, item.quantity - delQty);
 
                       reset(item.sku);
@@ -229,17 +165,6 @@ function CartPage() {
           </Button>
         </Card>
       </div>
-
-      {/* Modals */}
-      <LoginModal
-        isOpen={modals.loginModal}
-        onClose={() => close('loginModal')}
-        onSuccess={handleLoginSuccess}
-      />
-      <RegisterModal
-        isOpen={modals.registerModal}
-        onClose={() => close('registerModal')}
-      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
-﻿using Dsw2025Tpi.Application.Dtos;
+using Dsw2025Tpi.Application.Dtos;
 using Dsw2025Tpi.Application.Exceptions;
+using Dsw2025Tpi.Application.Mappers;
 using Dsw2025Tpi.Application.Validation;
 using Dsw2025Tpi.Data.Repositories;
 using Dsw2025Tpi.Domain.Entities;
@@ -30,15 +31,14 @@ namespace Dsw2025Tpi.Application.Services
             var product = await _repository.GetById<Product>(id);
             return product == null
                 ? throw new EntityNotFoundException("Product not found")
-                : new ProductModel.ResponseProductModel(product.Id, product.Sku, product.InternalCode, product.Name, product.Description, product.CurrentUnitPrice, product.StockQuantity, product.IsActive);
+                : product.MapToResponse();
         }
 
         public async Task<IEnumerable<ProductModel.ResponseProductModel>?> GetAllProducts()
         {
             return (await _repository
                 .GetFiltered<Product>(p => p.IsActive))?
-                .Select(p => new ProductModel.ResponseProductModel(p.Id, p.Sku, p.InternalCode, p.Name, p.Description,
-                p.CurrentUnitPrice, p.StockQuantity, p.IsActive));
+                .Select(p => p.MapToResponse());
         }
 
         public async Task<ProductModel.ResponseProductModel> AddProduct(ProductModel.RequestProductModel request)
@@ -48,8 +48,7 @@ namespace Dsw2025Tpi.Application.Services
             if (exist != null) throw new DuplicatedEntityException($"Un producto con Sku {request.Sku} ya existe");
             var product = new Product(request.Sku, request.InternalCode, request.Name, request.Description, request.CurrentUnitPrice, request.StockQuantity);
             await _repository.Add(product);
-            return new ProductModel.ResponseProductModel(product.Id, product.Sku, product.InternalCode, product.Name, product.Description,
-                product.CurrentUnitPrice, product.StockQuantity, product.IsActive);
+            return product.MapToResponse();
         }
         public async Task<ProductModel.ResponseProductModel> UpdateProduct(Guid id, ProductModel.RequestProductModel request)
         {
@@ -71,17 +70,7 @@ namespace Dsw2025Tpi.Application.Services
 
             await _repository.Update(exist);
 
-            return new ProductModel.ResponseProductModel
-           (
-                exist.Id,
-                exist.Sku,
-                exist.InternalCode,
-                exist.Name,
-                exist.Description,
-                exist.CurrentUnitPrice,
-                exist.StockQuantity,
-                exist.IsActive
-            );
+            return exist.MapToResponse();
         }
 
         public async Task PatchProduct(Guid id)
@@ -95,37 +84,52 @@ namespace Dsw2025Tpi.Application.Services
             await _repository.Update(exist);
         }
 
-        public async Task<ProductModel.ResponsePagination?> GetProducts(ProductModel.FilterProduct request)
+        /// <summary>
+        /// Listado paginado de productos (TP4-02).
+        /// - includeInactive = false (catálogo público): solo productos activos, se ignora Status.
+        /// - includeInactive = true (panel admin): respeta Status ("enabled" / "disabled" / todos).
+        /// - Search busca en Name, Sku e InternalCode sin distinguir mayúsculas.
+        /// - Orden estable por Sku y luego Id, Skip((page-1)*size).Take(size); TotalItems = total filtrado.
+        /// </summary>
+        public async Task<ProductModel.ResponsePagination> GetProducts(ProductModel.FilterProduct request, bool includeInactive = false)
         {
-            var isActive = request.Status == "enabled"
-                ? (bool?)true
-                : request.Status == "disabled"
-                    ? (bool?)false
-                    : null;
-            _logger.LogInformation("Consulta de productos");
-            var activeProducts = await _repository.GetFiltered<Product>(p => (
+            bool? isActive = includeInactive
+                ? request.Status switch
+                {
+                    "enabled" => true,
+                    "disabled" => false,
+                    _ => null
+                }
+                : true;
 
+            var search = string.IsNullOrWhiteSpace(request.Search) ? null : request.Search.Trim().ToLower();
+
+            _logger.LogInformation("Consulta de productos (includeInactive: {IncludeInactive}, search: {Search})", includeInactive, search);
+
+            // ToLower().Contains se traduce a SQL (LOWER(...) LIKE) tanto en SQL Server como en SQLite.
+            var filtered = await _repository.GetFiltered<Product>(p =>
                 (isActive == null || p.IsActive == isActive)
-                && (string.IsNullOrEmpty(request.Search) || p.Name.Contains(request.Search)))
-                );
-            if (activeProducts is null || !activeProducts.Any())
-                throw new EntityNotFoundException("No Products were found"); //probar con NoContent
+                && (search == null
+                    || (p.Name != null && p.Name.ToLower().Contains(search))
+                    || (p.Sku != null && p.Sku.ToLower().Contains(search))
+                    || (p.InternalCode != null && p.InternalCode.ToLower().Contains(search))));
 
-            var products = activeProducts.Select(p => new ProductModel.ResponseProductModel(
-                    p.Id,
-                    p.Sku,
-                    p.InternalCode,
-                    p.Name,
-                    p.Description,
-                    p.CurrentUnitPrice,
-                    p.StockQuantity,
-                    p.IsActive))
-                .OrderBy(p => p.Sku)
-                .Skip((request.pageNumber - 1) * request.PageSize ?? 0)
-                .Take(request.PageSize ?? activeProducts.Count());
+            var ordered = (filtered ?? Enumerable.Empty<Product>())
+                .OrderBy(p => p.Sku, StringComparer.Ordinal)
+                .ThenBy(p => p.Id)
+                .ToList();
 
-            return new ProductModel.ResponsePagination(products.ToList(), activeProducts.Count());
+            var totalItems = ordered.Count;
+            var pageNumber = request.pageNumber is > 0 ? request.pageNumber.Value : 1;
+            var pageSize = request.PageSize is > 0 ? request.PageSize.Value : Math.Max(totalItems, 1);
 
+            var page = ordered
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => p.MapToResponse())
+                .ToList();
+
+            return new ProductModel.ResponsePagination(page, totalItems);
         }
     }
 }

@@ -81,12 +81,12 @@ Ruleset 1 — `protect-main-development` (único, no uno por rama):
 - `Target branches`: `main` + `development`.
 - Reglas: `Restrict creations/updates/deletions` ON, `Require a pull request before merging` con approvals `1` (DoD pide 1 par, no 2), `Dismiss stale approvals` ON, `Require approval of most recent push` ON, `Require conversation resolution` ON, `Block force pushes` ON. `Require status checks` OFF hasta Fase D-mínimo, luego exigir `backend-build`, `frontend-build`, `branch-name-check`. `Require linear history / signed commits / deployments / scanning` OFF.
 
-Ruleset 2 — `conventional-branch-names`: verificado 02/10/2026 que GitHub Free en Branch ruleset NO muestra opción de nombre de rama. Se descarta ruleset y se reemplaza por control compensatorio CI `branch-name-check` en `continuous-integration.yml` (falla si `head_ref` no es `feature/*|hotfix/*|release/*|docs/*`). Patrón de referencia:
+Ruleset 2 — `conventional-branch-names`: verificado 02/10/2026 que GitHub Free en Branch ruleset NO muestra opción de nombre de rama. Se descarta ruleset y se reemplaza por control compensatorio CI `branch-name-check` en `continuous-integration.yml`. **Actualizado (fuente única de verdad = el CI):** el job acepta los prefijos `feature/*|feat/*|fix/*|hotfix/*|bugfix/*|release/*|docs/*|chore/*|refactor/*`. Regex exacto del CI:
 ```
-^(main|development|dev|feature\/[a-z0-9-]+|hotfix\/[a-z0-9-]+|release\/v[0-9]+\.[0-9]+.*|docs\/[a-z0-9-]+)$
+^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/)
 ```
-- Así solo se pueden crear `feature/*`, `hotfix/*`, `release/*`, `docs/*` además de las troncales. Cualquier `mi-rama-test` será rechazada en push/PR.
-- Alternativa si el plan Free no deja regex en Ruleset: hacer cumplir por CI con un job `branch-name-check` que falle si `$GITHUB_HEAD_REF` no matchea, + documentarlo como control compensatorio.
+- Así solo se pueden crear ramas con esos 9 prefijos además de las troncales (`main`/`development` se omiten del check). Cualquier `mi-rama-test` será rechazada en PR.
+- Si el regex del CI cambia, actualizar esta documentación (el CI manda).
 
 Verificación Fase A: intentar `git push origin main` directo → debe fallar; intentar crear rama `test123` → debe fallar o el CI debe marcarla roja; PR sin aprobación → botón Merge bloqueado.
 
@@ -160,7 +160,7 @@ on:
 **Jobs ahora (sin Docker):**
 1. `backend-build`: `checkout → setup-dotnet 8 → restore Dsw2025Tpi.sln → build Release` en `ICS_TPI2026_backend/`.
 2. `frontend-build`: `checkout → setup-node 20 → npm ci → lint → build` en `ICS_TPI2026_frontend/`.
-3. `branch-name-check` (solo `pull_request`): falla si `head_ref` no es `feature/*|hotfix/*|release/*|docs/*`. Reemplaza al Ruleset 2 inexistente en Free.
+3. `branch-name-check` (solo `pull_request`): falla si `head_ref` no matchea `^(feature/|feat/|fix/|hotfix/|bugfix/|release/|docs/|chore/|refactor/)` (regex real del CI). Reemplaza al Ruleset 2 inexistente en Free.
 
 **Después (Fase B/C):** agregar job `docker-build` (valida Dockerfile sin push) y crear `continuous-deployment.yml` para Azure (solo `push a main`: publish/docker push → webapps-deploy → smoke `/healthcheck`).
 

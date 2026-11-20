@@ -1,3 +1,4 @@
+using Dsw2025Tpi.Api.Authentication;
 using Dsw2025Tpi.Api.DependencyInjection;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Data;
@@ -17,7 +18,9 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dsw2025Tpi.Api;
 
-public class Program
+// TP4-01: la clase es "public partial" para que WebApplicationFactory<Program>
+// pueda levantar la API real en memoria desde Dsw2025Tpi.Tests.Integration.
+public partial class Program
 {
     public static async Task Main(string[] args)
     {
@@ -104,7 +107,9 @@ public class Program
         });
         builder.Services.AddSingleton<JwtTokenService>();
         var jwtConfig = builder.Configuration.GetSection("Jwt");
-        var keyText = jwtConfig["Key"] ?? throw new ArgumentNullException("JWT Key");
+        var keyText = jwtConfig["Key"];
+        if (string.IsNullOrWhiteSpace(keyText))
+            throw new InvalidOperationException("Jwt:Key configuration is missing or empty");
         var key = Encoding.UTF8.GetBytes(keyText);
 
         builder.Services.AddAuthentication(options =>
@@ -125,6 +130,22 @@ public class Program
                 IssuerSigningKey = new SymmetricSecurityKey(key),
                 RoleClaimType = ClaimTypes.Role
             };
+
+            // AT-06: el JWT viaja en una cookie HttpOnly. El header Authorization sigue funcionando.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var tokenFromCookie = AuthCookieDefaults.GetToken(context.Request);
+
+                    if (tokenFromCookie != null)
+                    {
+                        context.Token = tokenFromCookie;
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
 
 
@@ -135,12 +156,24 @@ public class Program
         using (var scope = app.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<Dsw2025TpiContext>();
-            dbContext.Database.Migrate();
             var authContext = scope.ServiceProvider.GetRequiredService<AuthenticateContext>();
-            authContext.Database.Migrate();
-            dbContext.Seedwork<Product>("Sources/Products.json");
-            dbContext.Seedwork<Customer>("Sources/Customers.json");
-            dbContext.Seedwork<Order>("Sources/Orders.json");
+
+            // TP4-06: por defecto se aplican las migraciones de SQL Server y la semilla JSON.
+            // Las pruebas de integración ponen Database:ApplyMigrations=false: corren sobre SQLite
+            // en memoria, por lo que el esquema se crea a partir del modelo y cada test siembra sus datos.
+            if (app.Configuration.GetValue("Database:ApplyMigrations", true))
+            {
+                dbContext.Database.Migrate();
+                authContext.Database.Migrate();
+                dbContext.Seedwork<Product>("Sources/Products.json");
+                dbContext.Seedwork<Customer>("Sources/Customers.json");
+                dbContext.Seedwork<Order>("Sources/Orders.json");
+            }
+            else
+            {
+                dbContext.Database.EnsureCreated();
+                authContext.Database.EnsureCreated();
+            }
            
             
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
