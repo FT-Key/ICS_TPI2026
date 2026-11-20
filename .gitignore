@@ -16,6 +16,7 @@ coverage.*
 coverage/
 coveragereport/
 newman/
+tests/e2e/results/
 
 # IDE
 .vs/
