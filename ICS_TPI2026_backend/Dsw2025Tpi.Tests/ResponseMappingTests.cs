@@ -113,8 +113,8 @@ public class ResponseMappingTests
 
         var result = await service.GetProducts(new ProductModel.FilterProduct(null, null, 1, 10));
 
-        // Ordenado por Sku, con el contenedor de paginacion actual (productItems / total).
-        var expected = new { productItems = new[] { ExpectedProduct(first), ExpectedProduct(second) }, total = 2 };
+        // Ordenado por Sku, con el contenedor de paginacion de TP4-02 (productItems / totalItems).
+        var expected = new { productItems = new[] { ExpectedProduct(first), ExpectedProduct(second) }, totalItems = 2 };
         Assert.Equal(Json(expected), Json(result));
     }
 

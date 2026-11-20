@@ -1,4 +1,4 @@
-﻿using Dsw2025Tpi.Domain.Entities;
+using Dsw2025Tpi.Domain.Entities;
 using System.Linq.Expressions;
 
 namespace Dsw2025Tpi.Domain.Interfaces;
@@ -13,4 +13,10 @@ public interface IRepository
     Task<T> Update<T>(T entity) where T : EntityBase;
     Task<T> Delete<T>(T entity) where T : EntityBase;
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ejecuta la operación dentro de una transacción de base de datos: si algo falla,
+    /// ningún cambio se persiste (TP4-02, alta de orden + descuento de stock).
+    /// </summary>
+    Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
 }

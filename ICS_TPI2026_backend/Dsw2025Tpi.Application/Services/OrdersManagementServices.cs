@@ -1,4 +1,4 @@
-﻿using Azure.Core;
+using Azure.Core;
 using Dsw2025Tpi.Application.Dtos;
 using Dsw2025Tpi.Application.Exceptions;
 using Dsw2025Tpi.Application.Mappers;
@@ -82,16 +82,16 @@ namespace Dsw2025Tpi.Application.Services
         }
 
         // El customerId proviene del claim "id" del JWT, nunca del body (AT-01).
+        // TP4-02: todas las validaciones (datos, cliente, existencia y stock de cada item)
+        // ocurren antes de mutar productos; el descuento de stock y el alta de la orden
+        // se ejecutan dentro de una única transacción.
         public async Task<OrderModel.ResponseOrderModel> AddOrder(OrderModel.RequestOrderModel request, Guid customerId)
         {
             OrderValidator.Validate(request);
 
-            if (request.OrderItems == null || !request.OrderItems.Any())
-                throw new ArgumentException("La orden tiene que tener mas de un item.");
-
             var customer = await _repository.GetById<Customer>(customerId);
             if (customer == null)
-                throw new EntityNotFoundException($"Customer con ID {customerId} not found.");
+                throw new CustomerNotFoundException(customerId);
 
             var order = new Order(
                 request.ShippingAddress,
@@ -100,7 +100,7 @@ namespace Dsw2025Tpi.Application.Services
                 customerId
             );
 
-            // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden.
+            // Una unica consulta batch (WHERE Id IN ...) para todos los productos de la orden (AT-03).
             var productIds = request.OrderItems.Select(i => i.ProductId).Distinct().ToList();
             var products = await _repository.GetFiltered<Product>(p => productIds.Contains(p.Id))
                 ?? Enumerable.Empty<Product>();
@@ -118,28 +118,33 @@ namespace Dsw2025Tpi.Application.Services
                 if (!productsById.TryGetValue(item.ProductId, out var product))
                     throw new EntityNotFoundException($"Producto not found: {item.ProductId}");
 
-                if (product.StockQuantity < requestedQuantities[item.ProductId])
-                    throw new InvalidOperationException($"Stock insuficiente: {product.Name}");
+                var requested = requestedQuantities[item.ProductId];
+                if (product.StockQuantity < requested)
+                    throw new InsufficientStockException(product.Id, product.Name, product.StockQuantity, requested);
 
-                var orderItem = new OrderItem(
+                orderItems.Add(new OrderItem(
                     item.Quantity,
                     product.CurrentUnitPrice,
                     order.Id,
                     product.Id
-                );
-                orderItems.Add(orderItem);
-            }
-
-            // El descuento se aplica en memoria sobre las entidades trackeadas...
-            foreach (var (productId, quantity) in requestedQuantities)
-            {
-                productsById[productId].StockQuantity -= quantity;
+                ));
             }
 
             order.OrderItems = orderItems;
 
-            // ...y un unico SaveChangesAsync persiste la orden y el descuento de stock.
-            await _repository.Add(order);
+            // Recién acá se modifica el inventario: si cualquier paso falla, la transacción
+            // revierte el descuento de stock y la orden no se crea.
+            await _repository.ExecuteInTransactionAsync(async () =>
+            {
+                foreach (var (productId, quantity) in requestedQuantities)
+                {
+                    var product = productsById[productId];
+                    product.StockQuantity -= quantity;
+                    await _repository.Update(product);
+                }
+
+                await _repository.Add(order);
+            });
 
             return order.MapToResponse();
         }

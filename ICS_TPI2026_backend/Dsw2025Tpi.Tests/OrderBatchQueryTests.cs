@@ -1,4 +1,5 @@
 using Dsw2025Tpi.Application.Dtos;
+using Dsw2025Tpi.Application.Exceptions;
 using Dsw2025Tpi.Application.Services;
 using Dsw2025Tpi.Data.Repositories;
 using Dsw2025Tpi.Domain.Entities;
@@ -23,7 +24,7 @@ public class OrderBatchQueryTests
     }
 
     [Fact]
-    public async Task AddOrder_ConCincoProductosDistintos_UsaUnaSolaLecturaBatchYUnSaveChanges()
+    public async Task AddOrder_ConCincoProductosDistintos_UsaUnaSolaLecturaBatchYUnaTransaccion()
     {
         await using var database = new SqliteTestDatabase();
         var (customerId, products) = await SeedCatalog(database, stock: 10);
@@ -44,7 +45,9 @@ public class OrderBatchQueryTests
         var productQueries = ProductQueries(database);
         Assert.Single(productQueries);
         Assert.Contains("\"Id\" IN (", productQueries[0], StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(1, context.SaveChangesCalls);
+        // TP4-02: un Update por producto + el alta de la orden, todo dentro de una única transacción.
+        Assert.Equal(ProductCount + 1, context.SaveChangesCalls);
+        Assert.Equal(1, database.TransactionsCommitted);
         Assert.Equal(ProductCount, response.OrderItems.Count);
 
         await using var verifyContext = database.CreateContext();
@@ -105,10 +108,12 @@ public class OrderBatchQueryTests
             null,
             products.Select(p => new OrderItemModel.RequestOrderItemModel(PurchasedQuantity, p.Id)).ToList());
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.AddOrder(request, customerId));
+        var exception = await Assert.ThrowsAsync<InsufficientStockException>(() => service.AddOrder(request, customerId));
 
         Assert.Contains("Stock insuficiente", exception.Message);
+        // La validación de stock ocurre antes de abrir la transacción: no hay escrituras.
         Assert.Equal(0, context.SaveChangesCalls);
+        Assert.Equal(0, database.TransactionsCommitted);
         Assert.Single(ProductQueries(database));
 
         await using var verifyContext = database.CreateContext();
@@ -140,7 +145,9 @@ public class OrderBatchQueryTests
         var response = await service.AddOrder(request, customerId);
 
         Assert.Equal(2, response.OrderItems.Count);
-        Assert.Equal(1, context.SaveChangesCalls);
+        // Un único Update del producto (cantidades sumadas) + el alta de la orden, en una transacción.
+        Assert.Equal(2, context.SaveChangesCalls);
+        Assert.Equal(1, database.TransactionsCommitted);
 
         await using var verifyContext = database.CreateContext();
         Assert.Equal(2, await verifyContext.OrderItems.CountAsync());

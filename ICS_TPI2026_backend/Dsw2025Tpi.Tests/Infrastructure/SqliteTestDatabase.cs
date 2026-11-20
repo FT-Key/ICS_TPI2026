@@ -14,6 +14,7 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly SqlCommandCounter _commandCounter = new();
+    private readonly TransactionCounter _transactionCounter = new();
 
     public SqliteTestDatabase()
     {
@@ -22,7 +23,7 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 
         Options = new DbContextOptionsBuilder<Dsw2025TpiContext>()
             .UseSqlite(_connection)
-            .AddInterceptors(_commandCounter)
+            .AddInterceptors(_commandCounter, _transactionCounter)
             .Options;
 
         using var context = new Dsw2025TpiContext(Options);
@@ -33,9 +34,17 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 
     public IReadOnlyList<string> Commands => _commandCounter.Commands;
 
+    public int TransactionsCommitted => _transactionCounter.Committed;
+
+    public int TransactionsRolledBack => _transactionCounter.RolledBack;
+
     public CountingContext CreateContext() => new(Options);
 
-    public void ResetCounters() => _commandCounter.Reset();
+    public void ResetCounters()
+    {
+        _commandCounter.Reset();
+        _transactionCounter.Reset();
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -89,5 +98,37 @@ internal sealed class SqlCommandCounter : DbCommandInterceptor
     {
         _commands.Add(command.CommandText);
         return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+    }
+}
+
+/// <summary>Cuenta las transacciones explícitas confirmadas y revertidas (TP4-02).</summary>
+internal sealed class TransactionCounter : DbTransactionInterceptor
+{
+    public int Committed { get; private set; }
+
+    public int RolledBack { get; private set; }
+
+    public void Reset()
+    {
+        Committed = 0;
+        RolledBack = 0;
+    }
+
+    public override void TransactionCommitted(DbTransaction transaction, TransactionEndEventData eventData)
+        => Committed++;
+
+    public override Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken = default)
+    {
+        Committed++;
+        return Task.CompletedTask;
+    }
+
+    public override void TransactionRolledBack(DbTransaction transaction, TransactionEndEventData eventData)
+        => RolledBack++;
+
+    public override Task TransactionRolledBackAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken = default)
+    {
+        RolledBack++;
+        return Task.CompletedTask;
     }
 }

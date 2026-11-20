@@ -12,7 +12,7 @@ function Home() {
       try {
         const { data: prodData } = await getProducts('', '', 1, 1);
 
-        if (prodData) setTotalProducts(prodData.total);
+        if (prodData) setTotalProducts(prodData.totalItems);
 
         const { data: orderData } = await getOrders('', '', 1, 20);
 
