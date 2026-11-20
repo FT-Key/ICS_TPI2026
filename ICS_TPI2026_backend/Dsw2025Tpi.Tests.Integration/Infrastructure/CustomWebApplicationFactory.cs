@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -24,6 +25,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     private readonly SqliteConnection _domainConnection = new("Data Source=:memory:");
     private readonly SqliteConnection _identityConnection = new("Data Source=:memory:");
+
+    /// <summary>Comandos SQL ejecutados sobre la base de dominio desde el último reset.</summary>
+    public SqlCommandLog SqlCommands { get; } = new();
 
     public CustomWebApplicationFactory()
     {
@@ -56,19 +60,22 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            ReplaceWithSqlite<Dsw2025TpiContext>(services, _domainConnection);
+            ReplaceWithSqlite<Dsw2025TpiContext>(services, _domainConnection, SqlCommands);
             ReplaceWithSqlite<AuthenticateContext>(services, _identityConnection);
         });
     }
 
-    private static void ReplaceWithSqlite<TContext>(IServiceCollection services, SqliteConnection connection)
+    private static void ReplaceWithSqlite<TContext>(
+        IServiceCollection services,
+        SqliteConnection connection,
+        params IInterceptor[] interceptors)
         where TContext : DbContext
     {
         // EF Core 9 registra la configuración del proveedor (UseSqlServer) como
         // IDbContextOptionsConfiguration<TContext>; hay que quitarla junto con las opciones.
         services.RemoveAll<DbContextOptions<TContext>>();
         services.RemoveAll<IDbContextOptionsConfiguration<TContext>>();
-        services.AddDbContext<TContext>(options => options.UseSqlite(connection));
+        services.AddDbContext<TContext>(options => options.UseSqlite(connection).AddInterceptors(interceptors));
     }
 
     /// <summary>Crea un scope y devuelve el contexto de dominio para sembrar datos o hacer asserts.</summary>
@@ -137,6 +144,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         await identity.Users
             .Where(u => u.UserName != TestUsers.AdminUserName)
             .ExecuteDeleteAsync();
+
+        SqlCommands.Clear();
     }
 
     protected override void Dispose(bool disposing)
