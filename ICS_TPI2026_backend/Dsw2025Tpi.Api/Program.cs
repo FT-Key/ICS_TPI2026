@@ -18,7 +18,9 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dsw2025Tpi.Api;
 
-public class Program
+// TP4-01: la clase es "public partial" para que WebApplicationFactory<Program>
+// pueda levantar la API real en memoria desde Dsw2025Tpi.Tests.Integration.
+public partial class Program
 {
     public static async Task Main(string[] args)
     {

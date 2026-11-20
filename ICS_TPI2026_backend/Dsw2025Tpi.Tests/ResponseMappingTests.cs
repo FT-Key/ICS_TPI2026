@@ -9,6 +9,7 @@ namespace Dsw2025Tpi.Tests;
 
 // AT-05: el JSON de cada endpoint de Products y Orders debe mantener exactamente
 // la misma estructura (nombres, orden y valores de los campos) tras centralizar el mapeo.
+[Trait("Category", "Unit")]
 public class ResponseMappingTests
 {
     private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);

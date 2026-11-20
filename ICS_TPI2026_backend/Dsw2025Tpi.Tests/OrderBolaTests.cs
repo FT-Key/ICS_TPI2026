@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Dsw2025Tpi.Tests;
 
+[Trait("Category", "Unit")]
 public class OrderBolaTests
 {
     private static readonly Guid UserA = Guid.Parse("11111111-1111-1111-1111-111111111111");

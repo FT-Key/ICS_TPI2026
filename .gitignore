@@ -9,6 +9,14 @@ obj/
 # Logs
 *.log
 
+# Resultados de pruebas y cobertura (TP4)
+TestResults/
+*.trx
+coverage.*
+coverage/
+coveragereport/
+newman/
+
 # IDE
 .vs/
 .idea/
