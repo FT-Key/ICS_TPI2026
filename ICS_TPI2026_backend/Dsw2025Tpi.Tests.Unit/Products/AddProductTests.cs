@@ -66,7 +66,7 @@ public class AddProductTests
         result.InternalCode.Should().Be(request.InternalCode);
         result.Name.Should().Be(request.Name);
         result.Description.Should().Be(request.Description);
-        result.CurrentUnitPrice.Should().Be(request.CurrentUnitPrice);
+        result.CurrentUnitPrice.Should().Be(request.CurrentUnitPrice + 1, "falla a proposito: evidencia del gate");
         result.StockQuantity.Should().Be(request.StockQuantity);
         result.IsActive.Should().BeTrue("todo producto nuevo se crea habilitado");
 
