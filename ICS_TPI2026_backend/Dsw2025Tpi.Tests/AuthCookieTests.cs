@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Dsw2025Tpi.Tests;
 
+[Trait("Category", "Unit")]
 public class AuthCookieTests
 {
     [Fact]

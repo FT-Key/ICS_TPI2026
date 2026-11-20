@@ -9,6 +9,7 @@ using Xunit.Abstractions;
 
 namespace Dsw2025Tpi.Tests;
 
+[Trait("Category", "Integration")]
 public class OrderBatchQueryTests
 {
     private const int ProductCount = 5;
