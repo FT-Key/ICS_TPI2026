@@ -1,0 +1,305 @@
+{
+  "info": {
+    "_postman_id": "0f4c9f4e-7f1a-4d2e-9c5b-7a6d3e2b1c90",
+    "name": "TP4 E2E - Flujo de compra",
+    "description": "Flujo end-to-end del TP4: registro, login, listado de productos, creacion de orden y verificacion del descuento de stock. El JWT se obtiene de la cookie HttpOnly y se reenvia como Bearer para no depender del cookie jar del cliente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5080"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Registrar usuario de prueba",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('username', 'e2e_' + Date.now());",
+              "pm.collectionVariables.set('password', 'E2e' + Date.now() + '!Aa1');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Registro 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Confirma el alta del usuario', () => {",
+              "  pm.expect(pm.response.text()).to.include('registrado');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"email\": \"{{username}}@tests.local\",\n  \"name\": \"Usuario E2E TP4\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Login (guarda el JWT de la cookie)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login 200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+              "const match = setCookie.match(/token=([^;]+)/);",
+              "",
+              "pm.test('Entrega la cookie HttpOnly con el JWT', () => {",
+              "  pm.expect(match, 'Set-Cookie recibido: ' + setCookie).to.not.be.null;",
+              "});",
+              "",
+              "pm.collectionVariables.set('token', match ? match[1] : '');",
+              "",
+              "const body = pm.response.json();",
+              "pm.test('Devuelve un rol valido', () => {",
+              "  pm.expect(body.role).to.be.oneOf(['User', 'Client', 'Admin']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Listar productos (elige uno con stock)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Catalogo publico 200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const body = pm.response.json();",
+              "pm.test('Respeta el contrato de paginacion', () => {",
+              "  pm.expect(body).to.have.property('productItems');",
+              "  pm.expect(body).to.have.property('totalItems');",
+              "  pm.expect(body.productItems).to.be.an('array');",
+              "});",
+              "",
+              "const product = (body.productItems || []).find(p => p.stockQuantity >= 3);",
+              "pm.test('Hay un producto activo con stock suficiente', () => {",
+              "  pm.expect(product, 'Sin productos con stock >= 3').to.not.be.undefined;",
+              "});",
+              "",
+              "pm.collectionVariables.set('productId', product.id);",
+              "pm.collectionVariables.set('stockBefore', String(product.stockQuantity));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/products?pageNumber=1&pageSize=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "products"
+          ],
+          "query": [
+            {
+              "key": "pageNumber",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "50"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Crear orden de 3 unidades",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Orden creada 201', () => pm.response.to.have.status(201));",
+              "",
+              "const order = pm.response.json();",
+              "pm.test('Devuelve el id y los items de la orden', () => {",
+              "  pm.expect(order).to.have.property('id');",
+              "  pm.expect(order).to.have.property('orderItems');",
+              "  pm.expect(order.orderItems).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shippingAddress\": \"Av. Siempre Viva 742\",\n  \"billingAddress\": \"Av. Siempre Viva 742\",\n  \"notes\": \"Compra E2E TP4\",\n  \"orderItems\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 3\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Verificar descuento de stock",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Producto 200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "const product = pm.response.json();",
+              "const expected = Number(pm.collectionVariables.get('stockBefore')) - 3;",
+              "",
+              "pm.test('El stock se desconto exactamente en 3 unidades', () => {",
+              "  pm.expect(product.stockQuantity).to.eql(expected);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/products/{{productId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "products",
+            "{{productId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Orden con stock insuficiente (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Stock insuficiente devuelve 400', () => pm.response.to.have.status(400));",
+              "pm.test('El mensaje explica la falta de stock', () => {",
+              "  pm.expect(pm.response.text().toLowerCase()).to.include('stock');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shippingAddress\": \"Av. Siempre Viva 742\",\n  \"billingAddress\": \"Av. Siempre Viva 742\",\n  \"notes\": \"Stock insuficiente E2E\",\n  \"orderItems\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 100000\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders"
+          ]
+        }
+      }
+    }
+  ]
+}
