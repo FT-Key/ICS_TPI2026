@@ -383,7 +383,7 @@ Además, checkoutea el `head_sha` que pasó las pruebas (no el último commit de
 
 ### 8.3 Protección de ramas
 
-`development` y `main` exigen los ocho checks del CI (`backend-unit-tests`, `backend-integration-tests`, `backend-e2e-tests`, `backend-build`, `docker-build`, `frontend-build`, `frontend-lint`, `branch-name-check`), rama al día antes del merge y `enforce_admins=true`. Un PR con pruebas en rojo no se puede mergear, ni siquiera con la cuenta dueña del repositorio.
+`development` y `main` exigen los ocho checks del CI (`backend-unit-tests`, `backend-integration-tests`, `backend-e2e-tests`, `backend-build`, `docker-build`, `frontend-build`, `frontend-lint`, `branch-name-check`), rama al día antes del merge (`strict`) y 1 aprobación, todo configurado en el ruleset `protect-main-development` (Settings > Rules). Son dos barreras distintas: la **del merge** (un PR con algún check en rojo no se puede mergear) y la **del despliegue** (el deploy a Azure solo corre si el CI de `main` terminó en `success`, ver 8.2).
 
 ### 8.4 Evidencia
 
@@ -397,7 +397,7 @@ Las capturas son la salida de `gh` (GitHub CLI) contra el repositorio, fechadas 
 
 ![Workflow de deploy disparado por workflow_run](img/tp4/08-deploy-gate.png)
 
-**Test en rojo que bloquea el merge.** Para demostrar el bloqueo se abrió el PR [#48](https://github.com/FT-Key/ICS_TPI2026/pull/48) (`[NO MERGEAR]`, rama `test/evidencia-gate`), que modifica a propósito el valor esperado de una prueba unitaria. El job `backend-unit-tests` falla (1 de 36), `backend-build` y `docker-build` quedan **omitidos** por el `needs`, y GitHub marca el PR como `BLOCKED` por la protección de rama: no se puede mergear y, por lo tanto, nunca llega a `main` ni dispara el deploy.
+**Test en rojo que bloquea el merge.** Para demostrar el bloqueo se abrió el PR [#48](https://github.com/FT-Key/ICS_TPI2026/pull/48) (`[NO MERGEAR]`, rama `test/evidencia-gate`), que modifica a propósito el valor esperado de una prueba unitaria. El job `backend-unit-tests` falla (1 de 36), `backend-build` y `docker-build` quedan **omitidos** por el `needs`, y el ruleset deja el merge en `BLOCKED`: no se puede mergear y, por lo tanto, nunca llega a `main` ni dispara el deploy. La captura `06-pr-bloqueado.png` se tomó el 21/11/2026 con el PR ya aprobado (`review=APPROVED`): el merge sigue `BLOCKED` y el único check fallido es `backend-unit-tests`, de modo que la causa del bloqueo es el test en rojo y no la falta de revisión.
 
 ![Test unitario fallado a propósito](img/tp4/07-test-rojo.png)
 
@@ -490,9 +490,9 @@ Las pruebas de integración permitieron detectar y documentar comportamientos qu
 
 - Se implementó una suite de **107 pruebas automatizadas** repartidas en tres proyectos, todas verdes, que corre en local en pocos segundos y sin SQL Server.
 - Las pruebas de integración comprueban el efecto real sobre la base (filas, stock y rollback), no solo los códigos HTTP, y ya detectaron un defecto concreto que quedó corregido y cubierto por una prueba de regresión.
-- La suite quedó integrada a GitHub Actions: el CI ejecuta unitarias, integración y E2E, y el despliegue a Azure solo corre si el CI terminó en `success` sobre `main`. `development` y `main` exigen los ocho checks para mergear.
+- La suite quedó integrada a GitHub Actions: el CI ejecuta unitarias, integración y E2E, y el despliegue a Azure solo corre si el CI terminó en `success` sobre `main`. `development` y `main` exigen los ocho checks para mergear (ruleset `protect-main-development`).
 - Se agregó el flujo E2E con Postman/Newman (7 requests, 23 asserts), verde en local, en CI y contra el entorno desplegado en Azure.
-- El bloqueo quedó demostrado con un PR real (#48): un solo test en rojo omite el build y la imagen Docker y deja el merge en `BLOCKED`.
+- El bloqueo quedó demostrado con un PR real (#48): un solo test en rojo omite el build y la imagen Docker y deja el merge en `BLOCKED` (único check fallido: `backend-unit-tests`).
 - La integración cubre el 97,9 % de `OrdersManagementServices`, el servicio de mayor riesgo; los huecos de cobertura que quedan corresponden a funcionalidad fuera del alcance de TP4 (7.7).
 
 ### 12.1 Lecciones aprendidas

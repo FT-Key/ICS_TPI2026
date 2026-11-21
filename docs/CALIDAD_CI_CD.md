@@ -85,7 +85,7 @@ Ademas:
 
 ## Status checks obligatorios
 
-Configurados en **Settings > Branches** para `development` y `main`:
+Configurados en **Settings > Rules** (ruleset `protect-main-development`) para `development` y `main`:
 
 - `backend-unit-tests`
 - `backend-integration-tests`
@@ -96,9 +96,9 @@ Configurados en **Settings > Branches** para `development` y `main`:
 - `frontend-lint`
 - `branch-name-check`
 
-Con `Require branches to be up to date before merging` y
-`Do not allow bypassing the above settings` para que el gate aplique tambien al
-administrador del repositorio.
+Con rama al dia antes del merge (`strict`) y 1 aprobacion obligatoria. El gate del
+merge (checks en rojo) y el del deploy (CI de `main` en `success`) son barreras
+distintas.
 
 ## Pruebas E2E (Postman + Newman)
 
