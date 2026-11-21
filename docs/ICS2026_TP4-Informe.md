@@ -5,9 +5,10 @@
 - **Proyecto:** Plataforma E-commerce (API .NET 8 + React + SQL Server) — módulo de Órdenes
 - **Repositorio:** https://github.com/FT-Key/ICS_TPI2026
 - **Fecha:** 20 de noviembre de 2026
-- **Rama de este documento:** `test/informe-tp4`
+- **Ramas de este documento:** `test/informe-tp4` (borrador, PR #41) y `test/informe-tp4-cierre` (versión final)
+- **Versión PDF:** `docs/ICS2026_TP4-Informe.pdf`
 
-> **Estado del documento.** Las secciones 8 (CI/CD y bloqueo del despliegue) y 9 (E2E) describen lo implementado en TP4-10 (PR #42) y TP4-09 (PR #43). Los resultados de las secciones 4 a 7 corresponden a una ejecución real de la suite con TP4-08 y la corrección de stock integradas (ver 7.1). Las capturas del pipeline en rojo y del tablero en Done quedan pendientes de incorporar (se indican en la sección 8.4).
+> **Estado del documento.** Versión final para revisión del equipo. Las secciones 4 a 7 corresponden a una ejecución real de la suite; la cobertura (7.7) proviene de los artifacts del CI verde sobre `main` (run 44810298273); las evidencias del gate (8.4) son la salida de `gh` sobre el PR #48, abierto a propósito con un test en rojo.
 
 ---
 
@@ -43,6 +44,7 @@ El enunciado pide describir los casos de prueba diseñados, mostrar capturas de 
 |---|---|
 | Descripción de los casos de prueba diseñados | 4, 5 y 6 |
 | Capturas de ejecuciones exitosas | 7 |
+| Métricas de cobertura por capa | 7.7 |
 | Prueba del despliegue bloqueado ante fallos | 8 |
 | Tablero ágil con el tránsito de las tarjetas | 10 |
 
@@ -69,6 +71,8 @@ El módulo de Órdenes y el catálogo de productos:
 | End-to-End | `tests/e2e` (Postman/Newman) | Flujo completo de compra contra la API real con SQL Server | API real + SQL Server 2022 | 7 requests / 23 asserts |
 
 Total: **107 pruebas automatizadas, 0 fallos** (sección 7) más el flujo E2E (sección 9).
+
+**Por qué esta forma de pirámide.** La base es ancha porque las reglas de negocio del módulo (cálculo del total, validación de stock, búsqueda y paginación) viven en los servicios de `Dsw2025Tpi.Application`: probarlas con mocks cuesta milisegundos, no depende de infraestructura y señala la regla exacta que se rompió. La capa de integración es la más numerosa en este proyecto por una razón concreta: los riesgos más caros del módulo de Órdenes (autorización por rol, transacción de stock, rollback, contrato JSON y códigos HTTP) solo se observan con el controlador real y una base real, y SQLite en memoria permite ejecutarlos en pocos segundos sin SQL Server. La punta E2E es deliberadamente angosta: un único flujo de compra contra la API desplegada confirma que las piezas encajan (cookie JWT, catálogo, orden y stock) sin duplicar lo que ya cubren las capas inferiores, porque es la capa más lenta y frágil.
 
 ### 2.2 Criterios de diseño
 
@@ -147,6 +151,22 @@ Lista mockeada de 15 productos con `IsActive` mixto.
 | `CreateOrder_WithoutItems_...` / `CreateOrder_WithInvalidQuantity_...` (2) | Datos inválidos se rechazan sin tocar el repositorio |
 | `CreateOrder_WhenPersistingTheOrderFails_PropagatesTheErrorFromTheTransaction` | El error de persistencia se propaga desde la transacción |
 
+### 4.4 Los 9 casos unitarios del enunciado
+
+Resumen de los tres escenarios exigidos por servicio, con su precondición y el resultado esperado.
+
+| # | Servicio y método | Precondición (Arrange) | Acción (Act) | Resultado esperado (Assert) |
+|---|---|---|---|---|
+| U1 | `ProductsManagementService.AddProduct` | Repositorio mockeado sin productos con ese SKU | Alta de un producto con precio y stock válidos | Devuelve el producto creado; `Add` se invoca exactamente una vez |
+| U2 | `ProductsManagementService.AddProduct` | El repositorio ya contiene un producto con el mismo SKU | Alta con SKU repetido | Lanza `DuplicatedEntityException`; `Add` nunca se invoca |
+| U3 | `ProductsManagementService.AddProduct` | Datos con precio ≤ 0 o stock ≤ 0 | Alta del producto | Lanza `InvalidDataException` antes de tocar el repositorio |
+| U4 | `ProductsManagementService.GetProducts` | 15 productos mockeados con `IsActive` mixto | Listado público (`includeInactive = false`) | Solo devuelve productos activos |
+| U5 | `ProductsManagementService.GetProducts` | 15 productos; `pageNumber` y `pageSize` informados | Listado paginado | Aplica `Skip((page-1)*size).Take(size)`; `totalItems` = total sin paginar |
+| U6 | `ProductsManagementService.GetProducts` | Productos con distintos Name, Sku e InternalCode | Búsqueda por término parcial en cualquier capitalización | Devuelve todas las coincidencias por Name, Sku o InternalCode |
+| U7 | `OrdersManagementService.AddOrder` | Cliente existente; productos con stock suficiente | Alta de una orden con dos ítems | Total = suma exacta de subtotales; stock descontado; `Add(order)` una vez |
+| U8 | `OrdersManagementService.AddOrder` | Un producto con stock menor a la cantidad pedida | Alta de la orden | Lanza `InsufficientStockException`; sin `Add` ni `Update`; stock intacto |
+| U9 | `OrdersManagementService.AddOrder` | El cliente no existe en el repositorio | Alta de la orden | Lanza `CustomerNotFoundException`; no se modifican productos ni se crean órdenes |
+
 ---
 
 ## 5. Pruebas de integración
@@ -205,6 +225,22 @@ Objetivo de la tarjeta: probar la transacción completa de creación de orden �
 | `GetAllOrders_AsUser_ReturnsForbidden` / `..._WithoutOrders_ReturnsNoContent` | Restricción por rol y 204 sin órdenes |
 | `GetAllOrders_ExcludesCancelledOrdersAndFiltersByStatusAndCustomer` | Las canceladas no aparecen; filtros por estado (sin distinguir mayúsculas) y por cliente |
 | `GetAllOrders_Paginates` | Segunda página de tamaño 2 con 3 órdenes devuelve 1 elemento y `totalCount` 3 |
+
+### 5.4 Los 9 casos de integración del enunciado
+
+Resumen de los escenarios exigidos con el endpoint, la autenticación y el código HTTP esperado. En todos se verifica además el estado de la base SQLite.
+
+| # | Endpoint | Autenticación | Escenario | Status esperado | Verificación en la base |
+|---|---|---|---|---|---|
+| I1 | `POST /api/products` | Sin token / rol User | Alta sin permisos | 401 / 403 | No se inserta ninguna fila |
+| I2 | `POST /api/products` | Admin | Alta válida | 201 + header `Location` | Fila en `Products` con los valores enviados |
+| I3 | `POST /api/products` | Admin | SKU ya existente | 409 | Sigue existiendo un único producto con ese SKU |
+| I4 | `POST /api/products` | Admin | Stock o precio ≤ 0 | 400 | No se inserta ninguna fila |
+| I5 | `GET /api/products?pageNumber=&pageSize=` | Pública | Listado con productos activos e inactivos | 200 con `productItems` y `totalItems` | No devuelve ningún producto con `IsActive = false` |
+| I6 | `GET /api/products/admin` | Admin | Listado administrativo | 200 | Incluye los productos inactivos |
+| I7 | `POST /api/orders` | Sin token | Alta de orden sin autenticar | 401 | Sin órdenes nuevas; stock intacto |
+| I8 | `POST /api/orders` | User | Alta con stock suficiente | 201 + estado `PENDING` | Filas en `Orders` y `OrderItems`; stock 10 → 7 y 5 → 3 |
+| I9 | `POST /api/orders` | User | Un ítem con stock insuficiente | 400 ("Stock insuficiente") | Sin orden y sin descuentos parciales en ningún producto |
 
 ---
 
@@ -276,6 +312,34 @@ dotnet test Dsw2025Tpi.Tests.Integration -c Release --filter "FullyQualifiedName
 
 La suite de integración corre en menos de 60 segundos y no depende de SQL Server.
 
+### 7.7 Métricas de cobertura por capa
+
+Cobertura de líneas y ramas medida con coverlet (formato Cobertura XML) en el CI verde de `main` del 20/11/2026 (run [44810298273](https://github.com/FT-Key/ICS_TPI2026/actions/runs/44810298273), artifacts `backend-unit-results` y `backend-integration-results`). Cada fila mide qué parte del código de producción ejercita una capa de pruebas por sí sola.
+
+| Ensamblado de producción | Unitarias (líneas) | Unitarias (ramas) | Integración (líneas) | Integración (ramas) |
+|---|---|---|---|---|
+| `Dsw2025Tpi.Domain` | 90,0 % (72/80) | 50,0 % | 91,3 % (73/80) | 50,0 % |
+| `Dsw2025Tpi.Application` | 55,3 % (166/300) | 43,8 % | 81,7 % (245/300) | 70,0 % |
+| `Dsw2025Tpi.Api` | — (no se instancia) | — | 69,5 % (249/358) | 54,5 % |
+| `Dsw2025Tpi.Data` (sin migraciones) | 0 % (0/162) | — | 67,3 % (109/162) | — |
+
+Cobertura de las clases bajo prueba:
+
+| Clase | Unitarias | Integración |
+|---|---|---|
+| `OrdersManagementServices` | 48,5 % (47/97) | 97,9 % (95/97) |
+| `ProducstManagementServices` | 56,2 % (41/73) | 61,6 % (45/73) |
+| `OrderController` | — | 79,1 % (34/43) |
+| `ProductsController` | — | 46,3 % (19/41) |
+| `InsufficientStockException` | 100 % (8/8) | 62,5 % (5/8) |
+
+Lectura de los números:
+
+- **Las migraciones de EF Core se excluyen** del cálculo de `Dsw2025Tpi.Data`: son 1284 líneas generadas que SQLite no ejecuta (`EnsureCreated`). Incluyéndolas, la integración marca 7,5 % sobre `Data`, un valor que no refleja el código escrito por el equipo.
+- **Las unitarias se concentran en las reglas de negocio** de los servicios (`AddProduct`, `GetProducts`, `AddOrder`). El 55 % de `Application` se explica por lo que deliberadamente no se prueba con mocks: edición, desactivación y consulta por id de productos, cambio de estado y consultas de órdenes (cubiertos por integración) y `JwtTokenService`.
+- **La integración alcanza el 97,9 % de `OrdersManagementServices`**, que es el servicio con mayor riesgo (stock y transacción).
+- **Huecos conocidos:** `ProductsController` (46 %) y `AuthenticateController` (49 %) tienen endpoints fuera del alcance (edición de productos, logout); `CustomerValidator` queda en 0 % porque no hay alta de clientes por API. No se fijó un umbral mínimo de cobertura en el CI; queda como mejora (sección 12).
+
 ---
 
 ## 8. Integración al CI/CD y bloqueo del despliegue
@@ -323,11 +387,27 @@ Además, checkoutea el `head_sha` que pasó las pruebas (no el último commit de
 
 ### 8.4 Evidencia
 
+Las capturas son la salida de `gh` (GitHub CLI) contra el repositorio, fechadas con `Get-Date` al momento de la captura. Se omitió el bloque `ANNOTATIONS` de `gh run view`, que solo contiene avisos de GitHub sobre la deprecación de Node.js 20 en las actions.
+
+**CI en verde sobre `main`.** Push del merge del PR #45 (release `development → main`) el 20/11/2026 20:19 UTC: los tres jobs de prueba pasan y recién entonces corren `backend-build` y `docker-build`. Los artifacts publicados contienen los `.trx`, la cobertura y los reportes JUnit/HTML del E2E. (`branch-name-check` se omite en los push porque solo aplica a pull requests.)
+
+![CI verde sobre main con los artifacts de pruebas](img/tp4/05-ci-verde-main.png)
+
+**Despliegue gatillado por el CI verde.** El workflow de deploy no se dispara con `push`: corrió por `workflow_run` 9 minutos después, al terminar en `success` el CI anterior, y desplegó el `head_sha` probado. Las ejecuciones anteriores (`push` sobre `main`, octubre de 2026) corresponden al esquema del TP3, sin gate.
+
+![Workflow de deploy disparado por workflow_run](img/tp4/08-deploy-gate.png)
+
+**Test en rojo que bloquea el merge.** Para demostrar el bloqueo se abrió el PR [#48](https://github.com/FT-Key/ICS_TPI2026/pull/48) (`[NO MERGEAR]`, rama `test/evidencia-gate`), que modifica a propósito el valor esperado de una prueba unitaria. El job `backend-unit-tests` falla (1 de 36), `backend-build` y `docker-build` quedan **omitidos** por el `needs`, y GitHub marca el PR como `BLOCKED` por la protección de rama: no se puede mergear y, por lo tanto, nunca llega a `main` ni dispara el deploy.
+
+![Test unitario fallado a propósito](img/tp4/07-test-rojo.png)
+
+![Checks del PR #48 con el build omitido y el merge bloqueado](img/tp4/06-pr-bloqueado.png)
+
 - [x] Workflow con los jobs de prueba y la dependencia `needs` del build.
-- [x] Ejecución verde del CI del PR #42 (8 checks, artifacts de unit, integración y E2E) y del PR #44 tras corregir el cache.
-- [ ] Captura del pipeline en rojo bloqueando el merge (generar con un PR de prueba que rompa un test).
-- [ ] Captura del workflow de deploy omitido cuando el CI falla.
-- [ ] Captura del pipeline verde desplegando (release `development → main`).
+- [x] Ejecución verde del CI sobre `main` con artifacts de unit, integración y E2E (run 44810298273).
+- [x] Pipeline en rojo bloqueando el merge (PR #48, run 44812109939).
+- [x] Deploy ejecutado solo por `workflow_run` después del CI verde (run 44811677693).
+- [ ] No se reprodujo un CI en rojo **sobre `main`** (el caso en que el job `build-and-deploy` queda `skipped`) porque exigiría romper la rama de producción; la protección de rama impide que un cambio en rojo llegue a `main`, y la condición `if` del gate está transcripta en 8.2.
 
 ---
 
@@ -341,11 +421,23 @@ Implementadas con Postman + Newman en `tests/e2e` (TP4-09):
 | `TP4.postman_environment.json` | Entorno local (`http://localhost:5080`) con `baseUrl` y `purchaseQuantity` |
 | `TP4.azure.postman_environment.json` | Entorno desplegado en Azure |
 
+Flujo documentado (orden de ejecución de la colección):
+
+| # | Request | Body / parámetros | Asserts |
+|---|---|---|---|
+| 1 | `POST /api/auth/register` | `username`, `password` (generada en runtime), `email`, `name` | Status 200; usuario creado |
+| 2 | `POST /api/auth/login` | `username`, `password` | Status 200; esquema JSON; token capturado en variable de colección; rol `User`; `customerId` disponible para la orden |
+| 3 | `GET /api/products?pageNumber=1&pageSize=100` | — | Status 200; esquema JSON; existe un producto activo con stock suficiente (se guarda `productId`, precio y stock inicial); total informado |
+| 4 | `POST /api/orders` | Direcciones, notas y un ítem del producto elegido con `purchaseQuantity` = 3 | Status 201; esquema JSON; estado `PENDING`; contiene el producto con la cantidad pedida; total = precio unitario × cantidad |
+| 5 | `GET /api/products/{productId}` | — | Status 200; esquema JSON; stock = stock inicial − 3 |
+| 6 | `POST /api/orders` | Ítem con una cantidad mayor al stock restante | Status 400; mensaje explicativo de stock insuficiente |
+| 7 | `GET /api/products/{productId}` | — | Status 200; stock intacto respecto del paso 5 |
+
 - **23 asserts**, incluidos los esquemas JSON de cada respuesta, el estado `PENDING`, el total (`totatAmount = precio unitario × cantidad`) y el stock intacto tras el rechazo.
 - El JWT se captura de la cookie `HttpOnly` y se reenvía como `Authorization: Bearer`; la colección acepta también el contrato anterior (token en el body, `total`), por lo que corre contra el entorno desplegado sin actualizar.
 - La password del usuario efímero se genera en runtime: no se versiona ninguna credencial.
 - Job `backend-e2e-tests` en CI: SQL Server 2022 como service container, API levantada en `http://localhost:5080` y reportes JUnit/HTML publicados como artifact.
-- Evidencia: `npm run test:e2e` verde en CI (PR #43) y `npm run test:e2e:azure` verde contra Azure (7 requests, 23 asserts, 0 fallos).
+- Evidencia: `npm run test:e2e` verde en CI (PR #43 y job `backend-e2e-tests` del run 44810298273 sobre `main`, reporte JUnit del 20/11/2026 20:20 UTC con 0 fallos) y `npm run test:e2e:azure` verde contra Azure (7 requests, 23 asserts, 0 fallos).
 
 ---
 
@@ -353,22 +445,23 @@ Implementadas con Postman + Newman en `tests/e2e` (TP4-09):
 
 Tránsito de las tarjetas de TP4 en el tablero de Trello al 20 de noviembre de 2026. Flujo de columnas: To Do → In Progress → In Code Review → In QA → Done.
 
-| Tarjeta | Descripción | PR | Columna actual |
+| Tarjeta | Descripción | PR | Columna |
 |---|---|---|---|
-| TP4-01 | Infraestructura de testing | #31 (mergeado) | In QA |
-| TP4-02 | Ajustes de dominio y contrato | #32 (mergeado) | In Code Review |
-| TP4-03 | Unitarias — AddProduct | #33 (mergeado) | In Code Review |
-| TP4-04 | Unitarias — listado, búsqueda y paginación | #34 (mergeado) | In Code Review |
-| TP4-05 | Unitarias — AddOrder | #35 (mergeado) | In Code Review |
-| TP4-06 | Integración — arnés y JWT de prueba | #36 (mergeado) | In Code Review |
-| TP4-07 | Integración — endpoints de productos | #37 (mergeado) | In Code Review |
-| TP4-08 | Integración — endpoint de órdenes y stock | #39 (mergeado) | In Progress |
-| TP4-09 | E2E con Postman/Newman (opcional) | #43 (mergeado) | In Code Review |
-| TP4-10 | CI/CD y bloqueo del deploy | #42 y #44 (mergeados) | In Progress |
-| TP4-11 | Este informe | #41 (esta rama) | Sprint 3 |
-| TP4-12 | Runner self-hosted | #30 (mergeado) | Blocked |
+| TP4-01 | Infraestructura de testing | #31 | Done |
+| TP4-02 | Ajustes de dominio y contrato | #32 | Done |
+| TP4-03 | Unitarias — AddProduct | #33 | Done |
+| TP4-04 | Unitarias — listado, búsqueda y paginación | #34 | Done |
+| TP4-05 | Unitarias — AddOrder | #35 | Done |
+| TP4-06 | Integración — arnés y JWT de prueba | #36 | Done |
+| TP4-07 | Integración — endpoints de productos | #37 | Done |
+| TP4-08 | Integración — endpoint de órdenes y stock | #39 (+ corrección #40) | Done |
+| TP4-09 | E2E con Postman/Newman (opcional) | #43 | Done |
+| TP4-10 | CI/CD y bloqueo del deploy | #42 y #44 | Done |
+| TP4-10.1 | Prefijo `test/` en `branch-name-check` | #38 | Done |
+| TP4-11 | Este informe | #41 (borrador) y PR de cierre | In Code Review |
+| TP4-12B | Runner self-hosted en WSL | #30 | Done |
 
-> **PENDIENTE:** el enunciado pide que el historial demuestre el tránsito de las tarjetas hasta **Done**. Las tarjetas pasan a Done después de la validación en QA; incorporar aquí una captura del tablero final cuando ocurra.
+Estado leído del tablero de Trello el 20/11/2026 a las 21:00 (GMT-3). Los movimientos entre columnas quedan registrados en el historial de actividad de cada tarjeta. TP4-11 pasa a Done cuando el equipo apruebe el PR de cierre de este informe.
 
 ---
 
@@ -399,7 +492,24 @@ Las pruebas de integración permitieron detectar y documentar comportamientos qu
 - Las pruebas de integración comprueban el efecto real sobre la base (filas, stock y rollback), no solo los códigos HTTP, y ya detectaron un defecto concreto que quedó corregido y cubierto por una prueba de regresión.
 - La suite quedó integrada a GitHub Actions: el CI ejecuta unitarias, integración y E2E, y el despliegue a Azure solo corre si el CI terminó en `success` sobre `main`. `development` y `main` exigen los ocho checks para mergear.
 - Se agregó el flujo E2E con Postman/Newman (7 requests, 23 asserts), verde en local, en CI y contra el entorno desplegado en Azure.
-- Queda pendiente para la entrega incorporar las capturas del pipeline en rojo bloqueando el merge y del tablero con las tarjetas en Done.
+- El bloqueo quedó demostrado con un PR real (#48): un solo test en rojo omite el build y la imagen Docker y deja el merge en `BLOCKED`.
+- La integración cubre el 97,9 % de `OrdersManagementServices`, el servicio de mayor riesgo; los huecos de cobertura que quedan corresponden a funcionalidad fuera del alcance de TP4 (7.7).
+
+### 12.1 Lecciones aprendidas
+
+- **Los mocks no ven la base.** El defecto de doble restitución de stock (11.1) y el rollback real de la transacción solo se pudieron observar con SQLite; las unitarias con mocks pasaban igual. Vale la pena invertir en una capa de integración rápida.
+- **Probar el efecto, no solo el status.** Varios escenarios devolvían el código HTTP correcto y aun así había que verificar que el stock no se hubiera descontado parcialmente. Leer la base después de cada request es lo que da confianza real.
+- **Un filtro sin coincidencias es un falso verde.** `dotnet test --filter` sin pruebas que coincidan termina con exit 0; por eso el script de CI falla si no se ejecutó ninguna prueba.
+- **El orden del pipeline es parte del diseño.** Que el deploy dependa de `workflow_run` y checkoutee el `head_sha` probado evita desplegar un commit distinto del que pasó las pruebas.
+- **Ajustar el código al contrato antes de probar.** TP4-02 evitó que la suite quedara en rojo por diferencias de contrato (201 vs 200, `totalItems`, validaciones) y no por errores reales.
+- **Las métricas necesitan contexto.** Sin excluir las migraciones, la cobertura de `Data` parecía del 7,5 %; el número útil es el del código escrito por el equipo.
+
+### 12.2 Mejoras propuestas
+
+- Fijar un umbral mínimo de cobertura en el CI (por ejemplo, 80 % de líneas sobre `Application`) y publicar un reporte HTML combinado.
+- Agregar un token de concurrencia (`RowVersion`) a `Product` y una prueba de órdenes simultáneas (11.2).
+- Incorporar un middleware global de excepciones y cubrir con pruebas las respuestas 4xx de `GET /api/orders`.
+- Actualizar las actions a versiones compatibles con Node.js 24 para eliminar los avisos de deprecación del CI.
 
 ---
 
@@ -450,3 +560,4 @@ npm run test:e2e:azure
 | `scripts/ci/run-dotnet-tests.sh` | Ejecución por categoría con guard de cero pruebas |
 | `docs/CALIDAD_CI_CD.md` | Flujo de calidad, checks obligatorios y comandos |
 | `docs/img/tp4/` | Capturas de este informe |
+| `docs/ICS2026_TP4-Informe.pdf` | Versión PDF de este informe |
